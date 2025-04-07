@@ -1,0 +1,188 @@
+[
+  {
+    "type": "function",
+    "name": "proveSettledState",
+    "inputs": [
+      {
+        "name": "_chainConfig",
+        "type": "tuple",
+        "internalType": "struct L2Configuration",
+        "components": [
+          {
+            "name": "prover",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "addresses",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "storageSlots",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "versionNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "finalityDelaySeconds",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "_l2WorldStateRoot",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_rlpEncodedL2Header",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_l1WorldStateRoot",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_proof",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "ContentLengthMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmptyItem",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FaultDisputeGameUnresolved",
+    "inputs": [
+      {
+        "name": "_gameStatus",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "IncorrectDisputeGameFactoryStateRoot",
+    "inputs": [
+      {
+        "name": "_disputeGameFactoryStateRoot",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidAccountProof",
+    "inputs": [
+      {
+        "name": "_address",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_data",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_proof",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "_root",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidDataRemainder",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidHeader",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidRLPEncodedBlock",
+    "inputs": [
+      {
+        "name": "_expectedBlockHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_calculatedBlockHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidStorageProof",
+    "inputs": [
+      {
+        "name": "_key",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_val",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_proof",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "_root",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnexpectedList",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnexpectedString",
+    "inputs": []
+  }
+]
