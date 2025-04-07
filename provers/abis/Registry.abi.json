@@ -1,0 +1,591 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_multiSigOwner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_onlyAdd",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "_initialL2Configurations",
+        "type": "tuple[]",
+        "internalType": "struct Registry.InitialL2Configuration[]",
+        "components": [
+          {
+            "name": "chainID",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "config",
+            "type": "tuple",
+            "internalType": "struct L2Configuration",
+            "components": [
+              {
+                "name": "prover",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "addresses",
+                "type": "address[]",
+                "internalType": "address[]"
+              },
+              {
+                "name": "storageSlots",
+                "type": "uint256[]",
+                "internalType": "uint256[]"
+              },
+              {
+                "name": "versionNumber",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "finalityDelaySeconds",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "_initialL1Configurations",
+        "type": "tuple[]",
+        "internalType": "struct Registry.InitialL1Configuration[]",
+        "components": [
+          {
+            "name": "chainID",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "config",
+            "type": "tuple",
+            "internalType": "struct L1Configuration",
+            "components": [
+              {
+                "name": "blockHashOracle",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "settlementBlocksDelay",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "settlementRegistry",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "settlementRegistryL2ConfigMappingSlot",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "settlementRegistryL1ConfigMappingSlot",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getL2ConfigAddresses",
+    "inputs": [
+      {
+        "name": "_chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getL2ConfigStorageSlots",
+    "inputs": [
+      {
+        "name": "_chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "grantChainID",
+    "inputs": [
+      {
+        "name": "_grantee",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "grantChainIDIrrevocable",
+    "inputs": [
+      {
+        "name": "_grantee",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "grantChainIDRange",
+    "inputs": [
+      {
+        "name": "_grantee",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_startChainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_stopChainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "grantChainIDRangeIrrevocable",
+    "inputs": [
+      {
+        "name": "_grantee",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_startChainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_stopChainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "granteeBitmap",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "irrevocableChainIDBitmap",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isGrantee",
+    "inputs": [
+      {
+        "name": "_grantee",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "l1ChainConfigurationHashMap",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "l1ChainConfigurations",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "blockHashOracle",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "settlementBlocksDelay",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "settlementRegistry",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "settlementRegistryL2ConfigMappingSlot",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "settlementRegistryL1ConfigMappingSlot",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "l2ChainConfigurationHashMap",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "l2ChainConfigurations",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "prover",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "versionNumber",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "finalityDelaySeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "multiSigOwner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "onlyAdd",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "updateL1ChainConfiguration",
+    "inputs": [
+      {
+        "name": "_chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_config",
+        "type": "tuple",
+        "internalType": "struct L1Configuration",
+        "components": [
+          {
+            "name": "blockHashOracle",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "settlementBlocksDelay",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "settlementRegistry",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "settlementRegistryL2ConfigMappingSlot",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "settlementRegistryL1ConfigMappingSlot",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateL2ChainConfiguration",
+    "inputs": [
+      {
+        "name": "_chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_config",
+        "type": "tuple",
+        "internalType": "struct L2Configuration",
+        "components": [
+          {
+            "name": "prover",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "addresses",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "storageSlots",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "versionNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "finalityDelaySeconds",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "L1ChainConfigurationUpdated",
+    "inputs": [
+      {
+        "name": "chainID",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "configHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "L2ChainConfigurationUpdated",
+    "inputs": [
+      {
+        "name": "chainID",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "configHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NewGrantee",
+    "inputs": [
+      {
+        "name": "chainID",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "grantee",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NewIrrevocableGrantee",
+    "inputs": [
+      {
+        "name": "chainID",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "grantee",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  }
+]
