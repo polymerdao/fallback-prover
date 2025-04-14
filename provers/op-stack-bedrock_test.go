@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
@@ -19,61 +17,6 @@ import (
 )
 
 func TestOPStackBedrockProver_GenerateSettledStateProof(t *testing.T) {
-	// Create a temporary directory for the ABI file
-	tempDir, err := os.MkdirTemp("", "opstack-bedrock-test")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	// Create the abis directory
-	abisDir := filepath.Join(tempDir, "abis")
-	err = os.Mkdir(abisDir, 0755)
-	require.NoError(t, err)
-
-	// Create the OPStackBedrockProver ABI file
-	abiContent := `[
-		{
-			"inputs": [
-				{
-					"internalType": "bytes32",
-					"name": "_messagePasserStorageRoot",
-					"type": "bytes32"
-				},
-				{
-					"internalType": "uint256",
-					"name": "_outputIndex",
-					"type": "uint256"
-				},
-				{
-					"internalType": "bytes[]",
-					"name": "_outputRootProof",
-					"type": "bytes[]"
-				},
-				{
-					"internalType": "bytes",
-					"name": "_outputOracleData",
-					"type": "bytes"
-				},
-				{
-					"internalType": "bytes[]",
-					"name": "_outputOracleProof",
-					"type": "bytes[]"
-				}
-			],
-			"name": "proveSettledState",
-			"outputs": [
-				{
-					"internalType": "bool",
-					"name": "",
-					"type": "bool"
-				}
-			],
-			"stateMutability": "view",
-			"type": "function"
-		}
-	]`
-	err = os.WriteFile(filepath.Join(abisDir, "OPStackBedrockProver.abi.json"), []byte(abiContent), 0644)
-	require.NoError(t, err)
-
 	// Parse the L2OutputOracle ABI
 	l2OutputOracleABI, err := getL2OutputOracleABI()
 	require.NoError(t, err)
@@ -124,19 +67,18 @@ func TestOPStackBedrockProver_GenerateSettledStateProof(t *testing.T) {
 
 			// getL2Output signature: 0xa25ae557
 			if string(methodSig) == string(hexutil.MustDecode("0xa25ae557")) {
-				// We need to construct a tuple with (outputRoot, timestamp, l2BlockNumber)
-				outputProposal := struct {
-					OutputRoot    common.Hash
-					Timestamp     *big.Int
-					L2BlockNumber *big.Int
-				}{
-					OutputRoot:    common.HexToHash("0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba"),
-					Timestamp:     big.NewInt(1000000000),
-					L2BlockNumber: big.NewInt(12345),
-				}
-				packedData, err := l2OutputOracleABI.Pack("getL2Output", outputProposal)
-				require.NoError(t, err)
-				return packedData, nil
+				// Instead of using packing, create a byte array directly
+				outputRoot := common.HexToHash("0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba")
+				timestamp := big.NewInt(1000000000)
+				l2BlockNumber := big.NewInt(12345)
+
+				// Manually create the response - 32 bytes for each field
+				responseData := make([]byte, 96)
+				copy(responseData[0:32], outputRoot.Bytes())
+				copy(responseData[32:64], common.LeftPadBytes(timestamp.Bytes(), 32))
+				copy(responseData[64:96], common.LeftPadBytes(l2BlockNumber.Bytes(), 32))
+
+				return responseData, nil
 			}
 
 			return nil, nil

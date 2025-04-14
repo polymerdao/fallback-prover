@@ -32,6 +32,11 @@
             "name": "finalityDelaySeconds",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "l2Type",
+            "type": "uint8",
+            "internalType": "enum Type"
           }
         ]
       },
@@ -83,16 +88,6 @@
   },
   {
     "type": "error",
-    "name": "ContentLengthMismatch",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "EmptyItem",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "IncorrectOutputOracleStorageRoot",
     "inputs": [
       {
@@ -130,16 +125,6 @@
   },
   {
     "type": "error",
-    "name": "InvalidDataRemainder",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidHeader",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "InvalidStorageProof",
     "inputs": [
       {
@@ -163,15 +148,5 @@
         "internalType": "bytes32"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "UnexpectedList",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "UnexpectedString",
-    "inputs": []
   }
 ]

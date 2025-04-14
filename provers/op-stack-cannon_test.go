@@ -63,8 +63,10 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 
 				// gameCount signature: 0x9ac1d59f
 				if string(methodSig) == string(hexutil.MustDecode("0x9ac1d59f")) {
-					// Fix: directly return the packed uint256
-					return common.LeftPadBytes(gameCount.Bytes(), 32), nil
+					// Ensure we're returning a non-empty response
+					response := common.LeftPadBytes(gameCount.Bytes(), 32)
+					t.Logf("Returning gameCount response: %x (len: %d)", response, len(response))
+					return response, nil
 				}
 
 				// gameAtIndex signature: 0xaf640d0f

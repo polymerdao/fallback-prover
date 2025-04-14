@@ -3,11 +3,9 @@ package provers
 import (
 	"context"
 	"math/big"
-	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/fallback_prover/testutil"
@@ -28,8 +26,8 @@ func TestRegistryProver_GetL2Configuration(t *testing.T) {
 	}
 	configType := "OPStackBedrock"
 
-	// Parse the Registry ABI - this is just for the test
-	registryABI, err := abi.JSON(strings.NewReader(registryABIString))
+	// Get the Registry ABI for testing
+	registryABI, err := getRegistryABI()
 	require.NoError(t, err)
 
 	// Print all method signatures for debugging
@@ -49,8 +47,21 @@ func TestRegistryProver_GetL2Configuration(t *testing.T) {
 
 			switch methodSig {
 			case "0x5338efd4": // getL2ConfigType(uint256) - Updated method signature
-				// Correctly pack the string according to the method output signature
-				return registryABI.Methods["getL2ConfigType"].Outputs.Pack(configType)
+				// Convert string to uint8 for the enum
+				var configTypeUint8 uint8
+				if configType == "OPStackBedrock" {
+					configTypeUint8 = 1
+				} else if configType == "OPStackCannon" {
+					configTypeUint8 = 2
+				} else if configType == "Arbitrum" {
+					configTypeUint8 = 3
+				}
+
+				// Pack the method output with the uint8
+				outputs := []interface{}{configTypeUint8}
+				packed, err := registryABI.Methods["getL2ConfigType"].Outputs.Pack(outputs...)
+				require.NoError(t, err)
+				return packed, nil
 			case "0x974ec7fc": // getL2ConfigAddresses(uint256)
 				// Correctly pack the address array according to the method output signature
 				return registryABI.Methods["getL2ConfigAddresses"].Outputs.Pack(addresses)
@@ -97,8 +108,8 @@ func TestRegistryProver_GetL1BlockHashOracle(t *testing.T) {
 	chainID := uint64(10) // Optimism Chain ID
 	oracleAddr := common.HexToAddress("0xabcdef1234567890abcdef1234567890abcdef12")
 
-	// Parse the Registry ABI - this is just for the test
-	registryABI, err := abi.JSON(strings.NewReader(registryABIString))
+	// Get the Registry ABI for testing
+	registryABI, err := getRegistryABI()
 	require.NoError(t, err)
 
 	// Print all method signatures for debugging

@@ -3,13 +3,14 @@ package provers
 import (
 	"context"
 	"fmt"
-	"github.com/polymerdao/fallback_prover/types"
 	"io"
 	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/polymerdao/fallback_prover/types"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -67,6 +68,22 @@ func getRegistryABI() (abi.ABI, error) {
 	return parsedABI, nil
 }
 
+// convertTypeToString converts the L2 config enum value to a string
+func convertTypeToString(typeValue uint8) string {
+	switch typeValue {
+	case 0:
+		return "Unknown"
+	case 1:
+		return "OPStackBedrock"
+	case 2:
+		return "OPStackCannon"
+	case 3:
+		return "Arbitrum"
+	default:
+		return fmt.Sprintf("Undefined:%d", typeValue)
+	}
+}
+
 // GetL2Configuration fetches the L2 configuration for a given chain ID
 func (r *RegistryProver) GetL2Configuration(ctx context.Context, chainID uint64) (*types.L2ConfigInfo, error) {
 	// 1. Query for the L2 config type
@@ -83,11 +100,14 @@ func (r *RegistryProver) GetL2Configuration(ctx context.Context, chainID uint64)
 		return nil, fmt.Errorf("failed to call getL2ConfigType: %w", err)
 	}
 
-	// Unpack the config type
-	var configType string
-	if err := r.abi.UnpackIntoInterface(&configType, "getL2ConfigType", configTypeResult); err != nil {
+	// Unpack the config type (which is actually a uint8 enum in the contract)
+	var configTypeUint8 uint8
+	if err := r.abi.UnpackIntoInterface(&configTypeUint8, "getL2ConfigType", configTypeResult); err != nil {
 		return nil, fmt.Errorf("failed to unpack config type: %w", err)
 	}
+
+	// Convert uint8 to string representation
+	configType := convertTypeToString(configTypeUint8)
 
 	// 2. Query for addresses
 	addressesData, err := r.abi.Pack("getL2ConfigAddresses", big.NewInt(int64(chainID)))

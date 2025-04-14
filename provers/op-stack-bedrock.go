@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/polymerdao/fallback_prover/types"
 	"io"
 	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/polymerdao/fallback_prover/types"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -230,13 +231,24 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	}
 
 	// OutputProposal struct has 3 fields: outputRoot, timestamp, l2BlockNumber
-	var outputProposal struct {
+	type OutputProposal struct {
 		OutputRoot    common.Hash
 		Timestamp     *big.Int
 		L2BlockNumber *big.Int
 	}
-	if err := outputOracleABI.UnpackIntoInterface(&outputProposal, "getL2Output", outputResult); err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to unpack output proposal: %w", err)
+	// First try to unpack directly into a struct
+	var outputProposal OutputProposal
+
+	// If the direct unpack fails, try the byte-by-byte approach
+	if len(outputResult) >= 96 { // 32 bytes for outputRoot, 32 bytes for timestamp, 32 bytes for l2BlockNumber
+		copy(outputProposal.OutputRoot[:], outputResult[:32])
+		outputProposal.Timestamp = new(big.Int).SetBytes(outputResult[32:64])
+		outputProposal.L2BlockNumber = new(big.Int).SetBytes(outputResult[64:96])
+	} else {
+		// Only try the ABI unpacking as a fallback
+		if err := outputOracleABI.UnpackIntoInterface(&outputProposal, "getL2Output", outputResult); err != nil {
+			return nil, common.Hash{}, nil, fmt.Errorf("failed to unpack output proposal: %w", err)
+		}
 	}
 
 	// Step 5: Get the storage proof for the output proposal
