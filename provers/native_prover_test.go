@@ -2,8 +2,6 @@ package provers
 
 import (
 	"math/big"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,91 +12,6 @@ import (
 )
 
 func TestNativeProver_EncodeProveCalldata(t *testing.T) {
-	// Create a temporary directory for the ABI file
-	tempDir, err := os.MkdirTemp("", "native-prover-test")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	// Create the abis directory
-	abisDir := filepath.Join(tempDir, "abis")
-	err = os.Mkdir(abisDir, 0755)
-	require.NoError(t, err)
-
-	// Create the NativeProver ABI file
-	abiContent := `[
-		{
-			"inputs": [
-				{
-					"internalType": "uint256",
-					"name": "_chainId",
-					"type": "uint256"
-				},
-				{
-					"internalType": "address",
-					"name": "_contractAddr",
-					"type": "address"
-				},
-				{
-					"internalType": "bytes32",
-					"name": "_slot",
-					"type": "bytes32"
-				},
-				{
-					"internalType": "bytes32",
-					"name": "_value",
-					"type": "bytes32"
-				},
-				{
-					"internalType": "bytes",
-					"name": "_l1Header",
-					"type": "bytes"
-				},
-				{
-					"internalType": "bytes",
-					"name": "_l2Header",
-					"type": "bytes"
-				},
-				{
-					"internalType": "bytes32",
-					"name": "_l2StateRoot",
-					"type": "bytes32"
-				},
-				{
-					"internalType": "bytes",
-					"name": "_settledStateProof",
-					"type": "bytes"
-				},
-				{
-					"internalType": "bytes[]",
-					"name": "_storageProof",
-					"type": "bytes[]"
-				},
-				{
-					"internalType": "bytes",
-					"name": "_accountData",
-					"type": "bytes"
-				},
-				{
-					"internalType": "bytes[]",
-					"name": "_accountProof",
-					"type": "bytes[]"
-				}
-			],
-			"name": "prove",
-			"outputs": [
-				{
-					"internalType": "bool",
-					"name": "",
-					"type": "bool"
-				}
-			],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		}
-	]`
-	err = os.WriteFile(filepath.Join(abisDir, "NativeProver.abi.json"), []byte(abiContent), 0644)
-	require.NoError(t, err)
-
 	// Test data
 	chainID := big.NewInt(42161)
 	contractAddr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
@@ -146,7 +59,7 @@ func TestNativeProver_EncodeProveCalldata(t *testing.T) {
 
 	// Update the expected selector to match the one in our ABI
 	expectedFunctionSelector := "0xe8a6cb5f" // This matches the actual function selector in our ABI
-	assert.Equal(t, expectedFunctionSelector, actualSelector[2:], "Calldata should start with the function selector for prove")
+	assert.Equal(t, expectedFunctionSelector, actualSelector, "Calldata should start with the function selector for prove")
 
 	// Check that the calldata includes our parameters - we'll just do a simple check for the chainID and contractAddr
 	// which should be encoded right after the function selector

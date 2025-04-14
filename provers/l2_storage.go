@@ -3,8 +3,9 @@ package provers
 import (
 	"context"
 	"fmt"
-	"github.com/polymerdao/fallback_prover/types"
 	"math/big"
+
+	"github.com/polymerdao/fallback_prover/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"

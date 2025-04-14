@@ -2,6 +2,7 @@ package fallback_prover
 
 import (
 	"fmt"
+
 	opflags "github.com/ethereum-optimism/optimism/op-service/flags"
 	"github.com/urfave/cli/v2"
 )
