@@ -3,7 +3,7 @@
     "type": "constructor",
     "inputs": [
       {
-        "name": "_chainID",
+        "name": "_l1ChainID",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -12,11 +12,6 @@
         "type": "tuple",
         "internalType": "struct L1Configuration",
         "components": [
-          {
-            "name": "chainID",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
           {
             "name": "blockHashOracle",
             "type": "address",
@@ -83,6 +78,11 @@
                 "name": "finalityDelaySeconds",
                 "type": "uint256",
                 "internalType": "uint256"
+              },
+              {
+                "name": "l2Type",
+                "type": "uint8",
+                "internalType": "enum Type"
               }
             ]
           }
@@ -93,7 +93,7 @@
   },
   {
     "type": "function",
-    "name": "CHAIN_ID",
+    "name": "L1_CHAIN_ID",
     "inputs": [],
     "outputs": [
       {
@@ -109,11 +109,6 @@
     "name": "L1_CONFIGURATION",
     "inputs": [],
     "outputs": [
-      {
-        "name": "chainID",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
       {
         "name": "blockHashOracle",
         "type": "address",
@@ -144,6 +139,151 @@
   },
   {
     "type": "function",
+    "name": "configureAndProve",
+    "inputs": [
+      {
+        "name": "_updateArgs",
+        "type": "tuple",
+        "internalType": "struct UpdateL2ConfigArgs",
+        "components": [
+          {
+            "name": "config",
+            "type": "tuple",
+            "internalType": "struct L2Configuration",
+            "components": [
+              {
+                "name": "prover",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "addresses",
+                "type": "address[]",
+                "internalType": "address[]"
+              },
+              {
+                "name": "storageSlots",
+                "type": "uint256[]",
+                "internalType": "uint256[]"
+              },
+              {
+                "name": "versionNumber",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "finalityDelaySeconds",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "l2Type",
+                "type": "uint8",
+                "internalType": "enum Type"
+              }
+            ]
+          },
+          {
+            "name": "l1StorageProof",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          },
+          {
+            "name": "rlpEncodedRegistryAccountData",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "l1RegistryProof",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      },
+      {
+        "name": "_proveArgs",
+        "type": "tuple",
+        "internalType": "struct ProveScalarArgs",
+        "components": [
+          {
+            "name": "chainID",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "contractAddr",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "storageSlot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "storageValue",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "l2WorldStateRoot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      },
+      {
+        "name": "_rlpEncodedL1Header",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_rlpEncodedL2Header",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_settledStateProof",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_l2StorageProof",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "_rlpEncodedContractAccount",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_l2AccountProof",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "storingContract",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "storageValue",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "l2ChainConfigurations",
     "inputs": [
       {
@@ -167,6 +307,11 @@
         "name": "finalityDelaySeconds",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "l2Type",
+        "type": "uint8",
+        "internalType": "enum Type"
       }
     ],
     "stateMutability": "view"
@@ -205,24 +350,36 @@
     "name": "prove",
     "inputs": [
       {
-        "name": "_chainID",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_contractAddr",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_storageSlot",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "_storageValue",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "name": "_args",
+        "type": "tuple",
+        "internalType": "struct ProveScalarArgs",
+        "components": [
+          {
+            "name": "chainID",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "contractAddr",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "storageSlot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "storageValue",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "l2WorldStateRoot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
       },
       {
         "name": "_rlpEncodedL1Header",
@@ -233,11 +390,6 @@
         "name": "_rlpEncodedL2Header",
         "type": "bytes",
         "internalType": "bytes"
-      },
-      {
-        "name": "_l2WorldStateRoot",
-        "type": "bytes32",
-        "internalType": "bytes32"
       },
       {
         "name": "_settledStateProof",
@@ -358,24 +510,36 @@
     "name": "proveStorageValue",
     "inputs": [
       {
-        "name": "_chainID",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_contractAddr",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_storageSlot",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "_storageValue",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "name": "_args",
+        "type": "tuple",
+        "internalType": "struct ProveScalarArgs",
+        "components": [
+          {
+            "name": "chainID",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "contractAddr",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "storageSlot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "storageValue",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "l2WorldStateRoot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
       },
       {
         "name": "_l2StorageProof",
@@ -391,11 +555,6 @@
         "name": "_l2AccountProof",
         "type": "bytes[]",
         "internalType": "bytes[]"
-      },
-      {
-        "name": "_l2WorldStateRoot",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "outputs": [
@@ -486,6 +645,151 @@
   },
   {
     "type": "function",
+    "name": "updateAndProve",
+    "inputs": [
+      {
+        "name": "_updateArgs",
+        "type": "tuple",
+        "internalType": "struct UpdateL2ConfigArgs",
+        "components": [
+          {
+            "name": "config",
+            "type": "tuple",
+            "internalType": "struct L2Configuration",
+            "components": [
+              {
+                "name": "prover",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "addresses",
+                "type": "address[]",
+                "internalType": "address[]"
+              },
+              {
+                "name": "storageSlots",
+                "type": "uint256[]",
+                "internalType": "uint256[]"
+              },
+              {
+                "name": "versionNumber",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "finalityDelaySeconds",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "l2Type",
+                "type": "uint8",
+                "internalType": "enum Type"
+              }
+            ]
+          },
+          {
+            "name": "l1StorageProof",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          },
+          {
+            "name": "rlpEncodedRegistryAccountData",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "l1RegistryProof",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      },
+      {
+        "name": "_proveArgs",
+        "type": "tuple",
+        "internalType": "struct ProveScalarArgs",
+        "components": [
+          {
+            "name": "chainID",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "contractAddr",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "storageSlot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "storageValue",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "l2WorldStateRoot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      },
+      {
+        "name": "_rlpEncodedL1Header",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_rlpEncodedL2Header",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_settledStateProof",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_l2StorageProof",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "_rlpEncodedContractAccount",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_l2AccountProof",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "storingContract",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "storageValue",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "updateL1ChainConfiguration",
     "inputs": [
       {
@@ -493,11 +797,6 @@
         "type": "tuple",
         "internalType": "struct L1Configuration",
         "components": [
-          {
-            "name": "chainID",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
           {
             "name": "blockHashOracle",
             "type": "address",
@@ -587,6 +886,11 @@
             "name": "finalityDelaySeconds",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "l2Type",
+            "type": "uint8",
+            "internalType": "enum Type"
           }
         ]
       },
@@ -660,11 +964,6 @@
   },
   {
     "type": "error",
-    "name": "ContentLengthMismatch",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "DestinationChainStateRootNotProved",
     "inputs": [
       {
@@ -678,11 +977,6 @@
         "internalType": "bytes32"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "EmptyItem",
-    "inputs": []
   },
   {
     "type": "error",
@@ -723,13 +1017,89 @@
   },
   {
     "type": "error",
-    "name": "InvalidDataRemainder",
-    "inputs": []
+    "name": "InvalidL1ConfigurationProof",
+    "inputs": [
+      {
+        "name": "_config",
+        "type": "tuple",
+        "internalType": "struct L1Configuration",
+        "components": [
+          {
+            "name": "blockHashOracle",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "settlementBlocksDelay",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "settlementRegistry",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "settlementRegistryL2ConfigMappingSlot",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "settlementRegistryL1ConfigMappingSlot",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ]
   },
   {
     "type": "error",
-    "name": "InvalidHeader",
-    "inputs": []
+    "name": "InvalidL2ConfigurationProof",
+    "inputs": [
+      {
+        "name": "_chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_config",
+        "type": "tuple",
+        "internalType": "struct L2Configuration",
+        "components": [
+          {
+            "name": "prover",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "addresses",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "storageSlots",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "versionNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "finalityDelaySeconds",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "l2Type",
+            "type": "uint8",
+            "internalType": "enum Type"
+          }
+        ]
+      }
+    ]
   },
   {
     "type": "error",
@@ -742,6 +1112,48 @@
       },
       {
         "name": "_calculatedBlockHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSettledStateProof",
+    "inputs": [
+      {
+        "name": "_chainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_l2WorldStateRoot",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidStorageProof",
+    "inputs": [
+      {
+        "name": "_key",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_val",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_proof",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "_root",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -807,7 +1219,7 @@
   },
   {
     "type": "error",
-    "name": "SettlementChainStateRootNotProved",
+    "name": "SettlementChainStateRootNotProven",
     "inputs": [
       {
         "name": "_blockProofStateRoot",
@@ -820,15 +1232,5 @@
         "internalType": "bytes32"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "UnexpectedList",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "UnexpectedString",
-    "inputs": []
   }
 ]

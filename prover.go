@@ -93,7 +93,7 @@ func (p *Prover) GenerateProofCalldata(
 		return "", fmt.Errorf("failed to get L1 block hash oracle: %w", err)
 	}
 
-	rlpEncodedL1Header, l1Block, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
+	rlpEncodedL1Header, _, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
@@ -114,9 +114,7 @@ func (p *Prover) GenerateProofCalldata(
 
 	settledStateProof, l2WorldStateRoot, rlpEncodedL2Header, err = p.settledStateProver.GenerateSettledStateProof(
 		ctx,
-		p.l2Config,
-		l1Block.Hash(),
-	)
+		p.l2Config)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
 	}
@@ -146,6 +144,170 @@ func (p *Prover) GenerateProofCalldata(
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to pack calldata: %w", err)
+	}
+
+	// Return the calldata as a hex string
+	return "0x" + common.Bytes2Hex(calldata), nil
+}
+
+// GenerateUpdateAndProveCalldata generates the calldata for the NativeProver.updateAndProve() function
+func (p *Prover) GenerateUpdateAndProveCalldata(
+	ctx context.Context,
+	srcL2ChainID uint64,
+	dstL2ChainID uint64,
+	srcAddress string,
+	srcStorageSlot string,
+) (string, error) {
+	l1BlockHashOracle, err := p.registryProver.GetL1BlockHashOracle(ctx, dstL2ChainID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get L1 block hash oracle: %w", err)
+	}
+
+	rlpEncodedL1Header, _, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
+	if err != nil {
+		return "", fmt.Errorf("failed to get L1 origin: %w", err)
+	}
+
+	// Generate the UpdateL2ConfigArgs from the registry
+	updateConfig, err := p.registryProver.GenerateUpdateL2ConfigArgs(ctx, srcL2ChainID)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate update L2 config args: %w", err)
+	}
+
+	contractAddr := common.HexToAddress(srcAddress)
+	slotHash := common.HexToHash(srcStorageSlot)
+
+	result, err := p.l2StorageProver.GetStorageAt(ctx, contractAddr, slotHash, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to get storage value: %w", err)
+	}
+
+	storageValue := common.HexToHash(result)
+
+	var settledStateProof []byte
+	var l2WorldStateRoot common.Hash
+	var rlpEncodedL2Header []byte
+
+	settledStateProof, l2WorldStateRoot, rlpEncodedL2Header, err = p.settledStateProver.GenerateSettledStateProof(
+		ctx,
+		p.l2Config)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
+	}
+
+	l2StorageProof, rlpEncodedContractAccount, l2AccountProof, err := p.l2StorageProver.GenerateStorageProof(
+		ctx,
+		contractAddr,
+		slotHash,
+		l2WorldStateRoot,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate storage proof: %w", err)
+	}
+
+	// Create ProveScalarArgs for the updateAndProve call
+	proveArgs := types.ProveScalarArgs{
+		ChainID:          big.NewInt(int64(srcL2ChainID)),
+		ContractAddr:     contractAddr,
+		StorageSlot:      slotHash,
+		StorageValue:     storageValue,
+		L2WorldStateRoot: l2WorldStateRoot,
+	}
+
+	calldata, err := p.nativeProver.EncodeUpdateAndProveCalldata(
+		*updateConfig,
+		proveArgs,
+		rlpEncodedL1Header,
+		rlpEncodedL2Header,
+		settledStateProof,
+		l2StorageProof,
+		rlpEncodedContractAccount,
+		l2AccountProof,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to pack updateAndProve calldata: %w", err)
+	}
+
+	// Return the calldata as a hex string
+	return "0x" + common.Bytes2Hex(calldata), nil
+}
+
+// GenerateConfigureAndProveCalldata generates the calldata for the NativeProver.configureAndProve() function
+func (p *Prover) GenerateConfigureAndProveCalldata(
+	ctx context.Context,
+	srcL2ChainID uint64,
+	dstL2ChainID uint64,
+	srcAddress string,
+	srcStorageSlot string,
+) (string, error) {
+	l1BlockHashOracle, err := p.registryProver.GetL1BlockHashOracle(ctx, dstL2ChainID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get L1 block hash oracle: %w", err)
+	}
+
+	rlpEncodedL1Header, _, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
+	if err != nil {
+		return "", fmt.Errorf("failed to get L1 origin: %w", err)
+	}
+
+	// Generate the UpdateL2ConfigArgs from the registry
+	updateConfig, err := p.registryProver.GenerateUpdateL2ConfigArgs(ctx, srcL2ChainID)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate update L2 config args: %w", err)
+	}
+
+	contractAddr := common.HexToAddress(srcAddress)
+	slotHash := common.HexToHash(srcStorageSlot)
+
+	result, err := p.l2StorageProver.GetStorageAt(ctx, contractAddr, slotHash, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to get storage value: %w", err)
+	}
+
+	storageValue := common.HexToHash(result)
+
+	var settledStateProof []byte
+	var l2WorldStateRoot common.Hash
+	var rlpEncodedL2Header []byte
+
+	settledStateProof, l2WorldStateRoot, rlpEncodedL2Header, err = p.settledStateProver.GenerateSettledStateProof(
+		ctx,
+		p.l2Config)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
+	}
+
+	l2StorageProof, rlpEncodedContractAccount, l2AccountProof, err := p.l2StorageProver.GenerateStorageProof(
+		ctx,
+		contractAddr,
+		slotHash,
+		l2WorldStateRoot,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate storage proof: %w", err)
+	}
+
+	// Create ProveScalarArgs for the configureAndProve call
+	proveArgs := types.ProveScalarArgs{
+		ChainID:          big.NewInt(int64(srcL2ChainID)),
+		ContractAddr:     contractAddr,
+		StorageSlot:      slotHash,
+		StorageValue:     storageValue,
+		L2WorldStateRoot: l2WorldStateRoot,
+	}
+
+	calldata, err := p.nativeProver.EncodeConfigureAndProveCalldata(
+		*updateConfig,
+		proveArgs,
+		rlpEncodedL1Header,
+		rlpEncodedL2Header,
+		settledStateProof,
+		l2StorageProof,
+		rlpEncodedContractAccount,
+		l2AccountProof,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to pack configureAndProve calldata: %w", err)
 	}
 
 	// Return the calldata as a hex string

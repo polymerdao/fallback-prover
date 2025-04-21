@@ -1,6 +1,8 @@
 package types
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
@@ -28,4 +30,40 @@ type StorageProofEntry struct {
 	Key   common.Hash  `json:"key"`
 	Value *hexutil.Big `json:"value"`
 	Proof []string     `json:"proof"`
+}
+
+// L2Type represents the type of L2 chain
+type L2Type uint8
+
+const (
+	Nitro L2Type = iota
+	OPStackBedrock
+	OPStackCannon
+)
+
+// L2Configuration represents the L2 chain configuration
+type L2Configuration struct {
+	Prover               common.Address
+	Addresses            []common.Address
+	StorageSlots         []*big.Int
+	VersionNumber        *big.Int
+	FinalityDelaySeconds *big.Int
+	L2Type               L2Type
+}
+
+// UpdateL2ConfigArgs represents the arguments needed for updating an L2 configuration
+type UpdateL2ConfigArgs struct {
+	Config                        L2Configuration
+	L1StorageProof                [][]byte
+	RlpEncodedRegistryAccountData []byte
+	L1RegistryProof               [][]byte
+}
+
+// ProveScalarArgs represents the arguments for the prove scalar function
+type ProveScalarArgs struct {
+	ChainID          *big.Int
+	ContractAddr     common.Address
+	StorageSlot      common.Hash
+	StorageValue     common.Hash
+	L2WorldStateRoot common.Hash
 }

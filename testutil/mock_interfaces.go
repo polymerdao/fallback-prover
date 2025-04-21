@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	t "github.com/polymerdao/fallback_prover/types"
@@ -11,8 +12,11 @@ import (
 
 // MockRegistryProver is a mock implementation of the provers.IRegistryProver interface
 type MockRegistryProver struct {
-	GetL2ConfigurationFunc   func(ctx context.Context, chainID uint64) (*t.L2ConfigInfo, error)
-	GetL1BlockHashOracleFunc func(ctx context.Context, chainID uint64) (common.Address, error)
+	GetL2ConfigurationFunc          func(ctx context.Context, chainID uint64) (*t.L2ConfigInfo, error)
+	GetL1BlockHashOracleFunc        func(ctx context.Context, chainID uint64) (common.Address, error)
+	GetL2ConfigurationForUpdateFunc func(ctx context.Context, chainID uint64) (*t.L2Configuration, error)
+	GetRegistryStorageProofFunc     func(ctx context.Context, chainID uint64) ([][]byte, []byte, [][]byte, error)
+	GenerateUpdateL2ConfigArgsFunc  func(ctx context.Context, chainID uint64) (*t.UpdateL2ConfigArgs, error)
 }
 
 func (m *MockRegistryProver) GetL2Configuration(ctx context.Context, chainID uint64) (*t.L2ConfigInfo, error) {
@@ -27,6 +31,27 @@ func (m *MockRegistryProver) GetL1BlockHashOracle(ctx context.Context, chainID u
 		return m.GetL1BlockHashOracleFunc(ctx, chainID)
 	}
 	return common.Address{}, nil
+}
+
+func (m *MockRegistryProver) GetL2ConfigurationForUpdate(ctx context.Context, chainID uint64) (*t.L2Configuration, error) {
+	if m.GetL2ConfigurationForUpdateFunc != nil {
+		return m.GetL2ConfigurationForUpdateFunc(ctx, chainID)
+	}
+	return nil, nil
+}
+
+func (m *MockRegistryProver) GetRegistryStorageProof(ctx context.Context, chainID uint64) ([][]byte, []byte, [][]byte, error) {
+	if m.GetRegistryStorageProofFunc != nil {
+		return m.GetRegistryStorageProofFunc(ctx, chainID)
+	}
+	return nil, nil, nil, nil
+}
+
+func (m *MockRegistryProver) GenerateUpdateL2ConfigArgs(ctx context.Context, chainID uint64) (*t.UpdateL2ConfigArgs, error) {
+	if m.GenerateUpdateL2ConfigArgsFunc != nil {
+		return m.GenerateUpdateL2ConfigArgsFunc(ctx, chainID)
+	}
+	return nil, nil
 }
 
 // MockL1OriginProver is a mock implementation of the provers.IL1OriginProver interface
@@ -71,31 +96,34 @@ func (m *MockStorageProver) GenerateStorageProof(ctx context.Context, contractAd
 
 // MockOPStackBedrockProver is a mock implementation of the provers.ISettledStateProver interface
 type MockOPStackBedrockProver struct {
-	GenerateSettledStateProofFunc func(ctx context.Context, config *t.L2ConfigInfo, l1StateRoot common.Hash) ([]byte, common.Hash, []byte, error)
+	GenerateSettledStateProofFunc func(ctx context.Context, config *t.L2ConfigInfo) ([]byte, common.Hash, []byte, error)
 }
 
-func (m *MockOPStackBedrockProver) GenerateSettledStateProof(ctx context.Context, config *t.L2ConfigInfo, l1StateRoot common.Hash) ([]byte, common.Hash, []byte, error) {
+func (m *MockOPStackBedrockProver) GenerateSettledStateProof(ctx context.Context, config *t.L2ConfigInfo) ([]byte, common.Hash, []byte, error) {
 	if m.GenerateSettledStateProofFunc != nil {
-		return m.GenerateSettledStateProofFunc(ctx, config, l1StateRoot)
+		return m.GenerateSettledStateProofFunc(ctx, config)
 	}
 	return nil, common.Hash{}, nil, nil
 }
 
 // MockOPStackCannonProver is a mock implementation of the provers.ISettledStateProver interface
 type MockOPStackCannonProver struct {
-	GenerateSettledStateProofFunc func(ctx context.Context, config *t.L2ConfigInfo, l1StateRoot common.Hash) ([]byte, common.Hash, []byte, error)
+	GenerateSettledStateProofFunc func(ctx context.Context, config *t.L2ConfigInfo) ([]byte, common.Hash, []byte, error)
 }
 
-func (m *MockOPStackCannonProver) GenerateSettledStateProof(ctx context.Context, config *t.L2ConfigInfo, l1StateRoot common.Hash) ([]byte, common.Hash, []byte, error) {
+func (m *MockOPStackCannonProver) GenerateSettledStateProof(ctx context.Context, config *t.L2ConfigInfo) ([]byte, common.Hash, []byte, error) {
 	if m.GenerateSettledStateProofFunc != nil {
-		return m.GenerateSettledStateProofFunc(ctx, config, l1StateRoot)
+		return m.GenerateSettledStateProofFunc(ctx, config)
 	}
 	return nil, common.Hash{}, nil, nil
 }
 
 // MockNativeProver is a mock implementation of the provers.INativeProver interface
 type MockNativeProver struct {
-	EncodeProveCalldataFunc func(chainID *big.Int, contractAddr common.Address, storageSlot common.Hash, storageValue common.Hash, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, l2WorldStateRoot common.Hash, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error)
+	EncodeProveCalldataFunc             func(chainID *big.Int, contractAddr common.Address, storageSlot common.Hash, storageValue common.Hash, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, l2WorldStateRoot common.Hash, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error)
+	EncodeUpdateAndProveCalldataFunc    func(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error)
+	EncodeConfigureAndProveCalldataFunc func(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error)
+	GetABIFunc                          func() abi.ABI
 }
 
 func (m *MockNativeProver) EncodeProveCalldata(chainID *big.Int, contractAddr common.Address, storageSlot common.Hash, storageValue common.Hash, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, l2WorldStateRoot common.Hash, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error) {
@@ -103,4 +131,25 @@ func (m *MockNativeProver) EncodeProveCalldata(chainID *big.Int, contractAddr co
 		return m.EncodeProveCalldataFunc(chainID, contractAddr, storageSlot, storageValue, rlpEncodedL1Header, rlpEncodedL2Header, l2WorldStateRoot, settledStateProof, l2StorageProof, rlpEncodedContractAccount, l2AccountProof)
 	}
 	return nil, nil
+}
+
+func (m *MockNativeProver) EncodeUpdateAndProveCalldata(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error) {
+	if m.EncodeUpdateAndProveCalldataFunc != nil {
+		return m.EncodeUpdateAndProveCalldataFunc(updateArgs, proveArgs, rlpEncodedL1Header, rlpEncodedL2Header, settledStateProof, l2StorageProof, rlpEncodedContractAccount, l2AccountProof)
+	}
+	return nil, nil
+}
+
+func (m *MockNativeProver) EncodeConfigureAndProveCalldata(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error) {
+	if m.EncodeConfigureAndProveCalldataFunc != nil {
+		return m.EncodeConfigureAndProveCalldataFunc(updateArgs, proveArgs, rlpEncodedL1Header, rlpEncodedL2Header, settledStateProof, l2StorageProof, rlpEncodedContractAccount, l2AccountProof)
+	}
+	return nil, nil
+}
+
+func (m *MockNativeProver) GetABI() abi.ABI {
+	if m.GetABIFunc != nil {
+		return m.GetABIFunc()
+	}
+	return abi.ABI{}
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	t "github.com/polymerdao/fallback_prover/types"
 )
 
 // NativeProver is responsible for encoding the calldata for the prove function
@@ -72,19 +73,78 @@ func (np *NativeProver) EncodeProveCalldata(
 	rlpEncodedContractAccount []byte,
 	l2AccountProof [][]byte,
 ) ([]byte, error) {
+	// Create the ProveScalarArgs struct
+	proveArgs := t.ProveScalarArgs{
+		ChainID:          chainID,
+		ContractAddr:     contractAddr,
+		StorageSlot:      storageSlot,
+		StorageValue:     storageValue,
+		L2WorldStateRoot: l2WorldStateRoot,
+	}
+
 	// Pack the arguments for the prove function
 	return np.abi.Pack(
 		"prove",
-		chainID,
-		contractAddr,
-		storageSlot,
-		storageValue,
+		proveArgs,
 		rlpEncodedL1Header,
 		rlpEncodedL2Header,
-		l2WorldStateRoot,
 		settledStateProof,
 		l2StorageProof,
 		rlpEncodedContractAccount,
 		l2AccountProof,
 	)
+}
+
+// EncodeUpdateAndProveCalldata encodes the parameters for the NativeProver.updateAndProve() function call
+func (np *NativeProver) EncodeUpdateAndProveCalldata(
+	updateArgs t.UpdateL2ConfigArgs,
+	proveArgs t.ProveScalarArgs,
+	rlpEncodedL1Header []byte,
+	rlpEncodedL2Header []byte,
+	settledStateProof []byte,
+	l2StorageProof [][]byte,
+	rlpEncodedContractAccount []byte,
+	l2AccountProof [][]byte,
+) ([]byte, error) {
+	return np.abi.Pack(
+		"updateAndProve",
+		updateArgs,
+		proveArgs,
+		rlpEncodedL1Header,
+		rlpEncodedL2Header,
+		settledStateProof,
+		l2StorageProof,
+		rlpEncodedContractAccount,
+		l2AccountProof,
+	)
+}
+
+// EncodeConfigureAndProveCalldata encodes the parameters for the NativeProver.configureAndProve() function call
+func (np *NativeProver) EncodeConfigureAndProveCalldata(
+	updateArgs t.UpdateL2ConfigArgs,
+	proveArgs t.ProveScalarArgs,
+	rlpEncodedL1Header []byte,
+	rlpEncodedL2Header []byte,
+	settledStateProof []byte,
+	l2StorageProof [][]byte,
+	rlpEncodedContractAccount []byte,
+	l2AccountProof [][]byte,
+) ([]byte, error) {
+	return np.abi.Pack(
+		"configureAndProve",
+		updateArgs,
+		proveArgs,
+		rlpEncodedL1Header,
+		rlpEncodedL2Header,
+		settledStateProof,
+		l2StorageProof,
+		rlpEncodedContractAccount,
+		l2AccountProof,
+	)
+}
+
+// GetABI returns the ABI for the NativeProver
+// This is mainly used for testing purposes
+func (np *NativeProver) GetABI() abi.ABI {
+	return np.abi
 }
