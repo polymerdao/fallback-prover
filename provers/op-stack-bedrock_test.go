@@ -24,7 +24,6 @@ func TestOPStackBedrockProver_GenerateSettledStateProof(t *testing.T) {
 	// Create test data
 	l2OutputOracleAddr := common.HexToAddress("0xabcdef1234567890abcdef1234567890abcdef12")
 	outputIndex := big.NewInt(123)
-	l1StateRoot := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 	messagePasserRoot := common.HexToHash("0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321")
 
 	// Create a test header and block
@@ -57,16 +56,21 @@ func TestOPStackBedrockProver_GenerateSettledStateProof(t *testing.T) {
 
 			// Determine which method is being called by looking at the method signature
 			methodSig := msg.Data[:4]
+			methodSigHex := hexutil.Encode(methodSig)
 
-			// getL2OutputIndexAfter signature: 0x7f006420
-			if string(methodSig) == string(hexutil.MustDecode("0x7f006420")) {
+			// Get method IDs from the L2OutputOracle ABI
+			getL2OutputIndexAfterMethodID := l2OutputOracleABI.Methods["getL2OutputIndexAfter"].ID
+			getL2OutputMethodID := l2OutputOracleABI.Methods["getL2Output"].ID
+
+			// getL2OutputIndexAfter method
+			if methodSigHex == hexutil.Encode(getL2OutputIndexAfterMethodID) {
 				packedData, err := l2OutputOracleABI.Pack("getL2OutputIndexAfter", outputIndex)
 				require.NoError(t, err)
 				return packedData, nil
 			}
 
-			// getL2Output signature: 0xa25ae557
-			if string(methodSig) == string(hexutil.MustDecode("0xa25ae557")) {
+			// getL2Output method
+			if methodSigHex == hexutil.Encode(getL2OutputMethodID) {
 				// Instead of using packing, create a byte array directly
 				outputRoot := common.HexToHash("0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba")
 				timestamp := big.NewInt(1000000000)
@@ -137,7 +141,6 @@ func TestOPStackBedrockProver_GenerateSettledStateProof(t *testing.T) {
 	settledStateProof, l2StateRoot, rlpEncodedL2Header, err := prover.GenerateSettledStateProof(
 		context.Background(),
 		config,
-		l1StateRoot,
 	)
 	require.NoError(t, err)
 

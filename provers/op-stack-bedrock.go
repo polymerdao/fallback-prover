@@ -142,9 +142,7 @@ const (
 // GenerateSettledStateProof creates a proof for an OPStack Bedrock L2 against L1
 func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	ctx context.Context,
-	config *types.L2ConfigInfo,
-	l1BlockHash common.Hash,
-) ([]byte, common.Hash, []byte, error) {
+	config *types.L2ConfigInfo) ([]byte, common.Hash, []byte, error) {
 	if len(config.Addresses) == 0 || len(config.StorageSlots) == 0 {
 		return nil, common.Hash{}, nil, fmt.Errorf("invalid config: addresses or slots are empty")
 	}

@@ -180,9 +180,7 @@ const (
 // GenerateSettledStateProof creates a proof for an OPStack Cannon L2 against L1
 func (p *OPStackCannonProver) GenerateSettledStateProof(
 	ctx context.Context,
-	config *types.L2ConfigInfo,
-	l1BlockHash common.Hash,
-) ([]byte, common.Hash, []byte, error) {
+	config *types.L2ConfigInfo) ([]byte, common.Hash, []byte, error) {
 	if len(config.Addresses) < 1 || len(config.StorageSlots) < 3 {
 		return nil, common.Hash{}, nil, fmt.Errorf("invalid config: addresses or slots are insufficient")
 	}
@@ -242,7 +240,6 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	if err != nil {
 		return nil, common.Hash{}, nil, fmt.Errorf("failed to pack gameCount call: %w", err)
 	}
-
 	gameCountResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
 		To:   &disputeGameFactoryAddr,
 		Data: gameCountData,
@@ -266,8 +263,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		}
 	} else {
 		fmt.Printf("Received empty gameCountResult (len: %d)\n", len(gameCountResult))
-		// For tests, use a default value instead of failing
-		gameCount = big.NewInt(1)
+		return nil, common.Hash{}, nil, fmt.Errorf("empty game count result from contract")
 	}
 
 	// For simplicity, we'll use the latest game (in a real implementation, we'd need to find the specific game for our block)
@@ -304,13 +300,8 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 			return nil, common.Hash{}, nil, fmt.Errorf("failed to unpack game address: %w", err)
 		}
 	} else {
-		fmt.Printf("Received empty gameAtIndexResult (len: %d), using test address\n", len(gameAtIndexResult))
-		// For tests, use the address from the config
-		if len(config.Addresses) > 0 {
-			gameAddress = config.Addresses[0]
-		} else {
-			gameAddress = common.HexToAddress("0xabcdef1234567890abcdef1234567890abcdef12") // Fallback
-		}
+		fmt.Printf("Received empty gameAtIndexResult (len: %d)\n", len(gameAtIndexResult))
+		return nil, common.Hash{}, nil, fmt.Errorf("empty game address result from contract")
 	}
 
 	// Step 5: Get storage proof for the dispute game factory
@@ -392,9 +383,8 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 			return nil, common.Hash{}, nil, fmt.Errorf("failed to unpack root claim: %w", err)
 		}
 	} else {
-		fmt.Printf("Received empty rootClaimResult (len: %d), using default hash\n", len(rootClaimResult))
-		// For tests, use a default hash
-		rootClaim = common.HexToHash("0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba")
+		fmt.Printf("Received empty rootClaimResult (len: %d)\n", len(rootClaimResult))
+		return nil, common.Hash{}, nil, fmt.Errorf("empty root claim result from contract")
 	}
 
 	// Get the game status
@@ -419,9 +409,8 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		gameStatus = statusResult[len(statusResult)-1] // Take last byte
 		fmt.Printf("Parsed gameStatus from bytes: %d (len: %d, bytes: %x)\n", gameStatus, len(statusResult), statusResult)
 	} else {
-		fmt.Printf("Received empty statusResult (len: %d), using default status\n", len(statusResult))
-		// For tests, use a default status
-		gameStatus = 2 // Some resolved status
+		fmt.Printf("Received empty statusResult (len: %d)\n", len(statusResult))
+		return nil, common.Hash{}, nil, fmt.Errorf("empty status result from contract")
 	}
 
 	// Step 7: Get storage proofs for the fault dispute game
@@ -457,12 +446,8 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	var faultDisputeGameRootClaimStorageProof [][]byte
 
 	if rootClaimProofIndex == -1 {
-		fmt.Printf("Root claim proof not found, using dummy values for test\n")
-		// For tests, use dummy values
-		faultDisputeGameRootClaimStorageProof = [][]byte{
-			[]byte("proof1"),
-			[]byte("proof2"),
-		}
+		fmt.Printf("Root claim proof not found\n")
+		return nil, common.Hash{}, nil, fmt.Errorf("root claim proof not found")
 	} else {
 		// Convert root claim storage proof to bytes
 		faultDisputeGameRootClaimStorageProof = make([][]byte, len(faultDisputeGameProof.StorageProof[rootClaimProofIndex].Proof))
@@ -483,12 +468,8 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	var faultDisputeGameStatusStorageProof [][]byte
 
 	if statusProofIndex == -1 {
-		fmt.Printf("Status proof not found, using dummy values for test\n")
-		// For tests, use dummy values
-		faultDisputeGameStatusStorageProof = [][]byte{
-			[]byte("proof3"),
-			[]byte("proof4"),
-		}
+		fmt.Printf("Status proof not found\n")
+		return nil, common.Hash{}, nil, fmt.Errorf("status proof not found")
 	} else {
 		// Convert status storage proof to bytes
 		faultDisputeGameStatusStorageProof = make([][]byte, len(faultDisputeGameProof.StorageProof[statusProofIndex].Proof))

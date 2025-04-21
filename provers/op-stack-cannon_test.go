@@ -3,6 +3,7 @@ package provers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -27,7 +28,6 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 	gameStatus := uint8(2) // Some status value
 	messagePasserRoot := common.HexToHash("0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321")
 	faultDisputeGameStateRoot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
-	l1StateRoot := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 
 	// Create a test header and block
 	l2Header := testutil.CreateTestHeader(t)
@@ -58,40 +58,67 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 		CallContractFunc: func(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 			// Check that we're calling one of the expected contracts
 			if msg.To.Hex() == disputeGameFactoryAddr.Hex() {
+				// Debug log the incoming message data
+				t.Logf("Calling factory contract with data: %x", msg.Data)
+
 				// Determine which method is being called by looking at the method signature
 				methodSig := msg.Data[:4]
+				methodSigHex := hexutil.Encode(methodSig)
 
-				// gameCount signature: 0x9ac1d59f
-				if string(methodSig) == string(hexutil.MustDecode("0x9ac1d59f")) {
+				// Get method signatures from the same ABI used in the code being tested
+				disputeGameFactoryABI, _ := getDisputeGameFactoryABI()
+				gameCountMethodID := disputeGameFactoryABI.Methods["gameCount"].ID
+				gameAtIndexMethodID := disputeGameFactoryABI.Methods["gameAtIndex"].ID
+
+				// gameCount method
+				if methodSigHex == hexutil.Encode(gameCountMethodID) {
+					t.Logf("Handling gameCount call...")
 					// Ensure we're returning a non-empty response
 					response := common.LeftPadBytes(gameCount.Bytes(), 32)
 					t.Logf("Returning gameCount response: %x (len: %d)", response, len(response))
 					return response, nil
 				}
 
-				// gameAtIndex signature: 0xaf640d0f
-				if string(methodSig) == string(hexutil.MustDecode("0xaf640d0f")) {
-					// Fix: directly return the address as a 32-byte value
+				// gameAtIndex method
+				if methodSigHex == hexutil.Encode(gameAtIndexMethodID) {
+					t.Logf("Handling gameAtIndex call...")
+					// Return the address as a 32-byte value
 					return common.LeftPadBytes(disputeGameAddr.Bytes(), 32), nil
 				}
+
+				return nil, fmt.Errorf("Unknown method signature: %s for contract  %s", methodSigHex, msg.To.Hex())
 			} else if msg.To.Hex() == disputeGameAddr.Hex() {
+				// Debug log the incoming message data
+				t.Logf("Calling dispute game contract with data: %x", msg.Data)
+
 				// Determine which method is being called by looking at the method signature
 				methodSig := msg.Data[:4]
+				methodSigHex := hexutil.Encode(methodSig)
 
-				// rootClaim signature: 0x74a1e471
-				if string(methodSig) == string(hexutil.MustDecode("0x74a1e471")) {
-					// Fix: directly return the hash as bytes
+				// Get method signatures from the same ABI used in the code being tested
+				faultDisputeGameABI, _ := getFaultDisputeGameABI()
+				rootClaimMethodID := faultDisputeGameABI.Methods["rootClaim"].ID
+				statusMethodID := faultDisputeGameABI.Methods["status"].ID
+
+				// rootClaim method
+				if methodSigHex == hexutil.Encode(rootClaimMethodID) {
+					t.Logf("Handling rootClaim call...")
+					// Return the hash as bytes
 					return rootClaim.Bytes(), nil
 				}
 
-				// status signature: 0x200d2ed2
-				if string(methodSig) == string(hexutil.MustDecode("0x200d2ed2")) {
-					// Fix: directly return the status as a byte
+				// status method
+				if methodSigHex == hexutil.Encode(statusMethodID) {
+					t.Logf("Handling status call...")
+					// Return the status as a byte
 					statusBytes := []byte{gameStatus}
 					return common.RightPadBytes(statusBytes, 32), nil
 				}
+
+				return nil, fmt.Errorf("Unknown method signature: %s for contract  %s", methodSigHex, msg.To.Hex())
 			}
 
+			t.Logf("CallContract called with unknown address: %s", msg.To.Hex())
 			return nil, nil
 		},
 	}
@@ -128,12 +155,12 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 						"storageProof": []map[string]interface{}{
 							{
 								"key":   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000456").Hex(),
-								"value": rootClaim.Hex(),
+								"value": "0x" + common.Bytes2Hex(rootClaim.Bytes()),
 								"proof": []string{"0xproof1", "0xproof2"},
 							},
 							{
 								"key":   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000789").Hex(),
-								"value": "0x0000000000000000000000000000000000000000000000000000000000000002", // Game status
+								"value": "0x2", // Game status
 								"proof": []string{"0xproof1", "0xproof2"},
 							},
 						},
@@ -184,7 +211,6 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 	settledStateProof, l2StateRoot, rlpEncodedL2Header, err := prover.GenerateSettledStateProof(
 		context.Background(),
 		config,
-		l1StateRoot,
 	)
 	require.NoError(t, err)
 

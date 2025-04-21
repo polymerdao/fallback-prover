@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -50,17 +51,44 @@ type INativeProver interface {
 		rlpEncodedContractAccount []byte,
 		l2AccountProof [][]byte,
 	) ([]byte, error)
+
+	// Added methods for the new contract functions
+	EncodeUpdateAndProveCalldata(
+		updateArgs t.UpdateL2ConfigArgs,
+		proveArgs t.ProveScalarArgs,
+		rlpEncodedL1Header []byte,
+		rlpEncodedL2Header []byte,
+		settledStateProof []byte,
+		l2StorageProof [][]byte,
+		rlpEncodedContractAccount []byte,
+		l2AccountProof [][]byte,
+	) ([]byte, error)
+
+	EncodeConfigureAndProveCalldata(
+		updateArgs t.UpdateL2ConfigArgs,
+		proveArgs t.ProveScalarArgs,
+		rlpEncodedL1Header []byte,
+		rlpEncodedL2Header []byte,
+		settledStateProof []byte,
+		l2StorageProof [][]byte,
+		rlpEncodedContractAccount []byte,
+		l2AccountProof [][]byte,
+	) ([]byte, error)
+
+	// For testing purposes
+	GetABI() abi.ABI
 }
 
 type ISettledStateProver interface {
 	GenerateSettledStateProof(
 		ctx context.Context,
-		config *t.L2ConfigInfo,
-		l1BlockHash common.Hash,
-	) ([]byte, common.Hash, []byte, error)
+		config *t.L2ConfigInfo) ([]byte, common.Hash, []byte, error)
 }
 
 type IRegistryProver interface {
 	GetL2Configuration(ctx context.Context, chainID uint64) (*t.L2ConfigInfo, error)
 	GetL1BlockHashOracle(ctx context.Context, chainID uint64) (common.Address, error)
+	GetL2ConfigurationForUpdate(ctx context.Context, chainID uint64) (*t.L2Configuration, error)
+	GetRegistryStorageProof(ctx context.Context, chainID uint64) ([][]byte, []byte, [][]byte, error)
+	GenerateUpdateL2ConfigArgs(ctx context.Context, chainID uint64) (*t.UpdateL2ConfigArgs, error)
 }
