@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -280,15 +281,15 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	// First, try to parse it as raw bytes
 	if len(gameCountResult) == 32 {
 		gameCount = new(big.Int).SetBytes(gameCountResult)
-		fmt.Printf("Parsed gameCount from bytes: %v (len: %d, bytes: %x)\n", gameCount, len(gameCountResult), gameCountResult)
+		log.Debug("Parsed gameCount from bytes", "count", gameCount, "len", len(gameCountResult), "bytes", fmt.Sprintf("%x", gameCountResult))
 	} else if len(gameCountResult) > 0 {
 		// If we have non-empty data but not 32 bytes, try ABI unpacking
 		if err := disputeGameFactoryABI.UnpackIntoInterface(&gameCount, "gameCount", gameCountResult); err != nil {
-			fmt.Printf("Failed to unpack gameCount, got error: %v (result len: %d, data: %x)\n", err, len(gameCountResult), gameCountResult)
+			log.Debug("Failed to unpack gameCount", "error", err, "resultLen", len(gameCountResult), "data", fmt.Sprintf("%x", gameCountResult))
 			return nil, common.Hash{}, nil, fmt.Errorf("failed to unpack game count: %w", err)
 		}
 	} else {
-		fmt.Printf("Received empty gameCountResult (len: %d)\n", len(gameCountResult))
+		log.Debug("Received empty gameCountResult", "len", len(gameCountResult))
 		return nil, common.Hash{}, nil, fmt.Errorf("empty game count result from contract")
 	}
 
@@ -319,15 +320,14 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		} else if len(gameAtIndexResult) > 0 {
 			// Try to unpack via ABI
 			if err := disputeGameFactoryABI.UnpackIntoInterface(&currentGameAddress, "gameAtIndex", gameAtIndexResult); err != nil {
-				fmt.Printf("Failed to unpack gameAddress for index %v, got error: %v\n", i, err)
+				log.Debug("Failed to unpack gameAddress", "index", i, "error", err)
 				continue
 			}
 		} else {
-			fmt.Printf("Received empty gameAtIndexResult for index %v\n", i)
+			log.Debug("Received empty gameAtIndexResult", "index", i)
 			continue
 		}
-
-		println("Game address:", currentGameAddress.Hex())
+		log.Debug("Game address from factory", "index", i, "address", currentGameAddress.Hex())
 
 		// Check game status
 		faultDisputeGameABI, err := getFaultDisputeGameABI()
@@ -345,14 +345,14 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 			Data: statusData,
 		}, nil)
 		if err != nil {
-			fmt.Printf("Failed to call status for game %s: %v\n", currentGameAddress.Hex(), err)
+			log.Debug("Failed to call status for game", "address", currentGameAddress.Hex(), "error", err)
 			continue
 		}
 
 		var gameStatus uint8
 		if len(statusResult) > 0 {
 			gameStatus = statusResult[len(statusResult)-1] // Take last byte
-			fmt.Printf("Game %v (%s) status: %d\n", i, currentGameAddress.Hex(), gameStatus)
+			log.Debug("Game status", "index", i, "address", currentGameAddress.Hex(), "status", gameStatus)
 
 			// Check if the game is resolved (status = 2 is typically RESOLVED/FINALIZED)
 			// The exact status enum may vary, so adjust as needed
@@ -368,7 +368,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		return nil, common.Hash{}, nil, fmt.Errorf("no suitable resolved dispute games found")
 	}
 
-	fmt.Printf("Using game at index %v with address %s\n", gameIndex, gameAddress.Hex())
+	log.Debug("Using game", "index", gameIndex, "address", gameAddress.Hex())
 
 	// Step 5: Get storage proof for the dispute game factory
 	// Calculate the storage slot for the game index
@@ -441,15 +441,15 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	// First check if we got a valid result
 	if len(rootClaimResult) == 32 {
 		copy(rootClaim[:], rootClaimResult)
-		fmt.Printf("Parsed rootClaim from bytes: %s (len: %d, bytes: %x)\n", rootClaim.Hex(), len(rootClaimResult), rootClaimResult)
+		log.Debug("Parsed rootClaim from bytes", "claim", rootClaim.Hex(), "len", len(rootClaimResult), "bytes", fmt.Sprintf("%x", rootClaimResult))
 	} else if len(rootClaimResult) > 0 {
 		// Try to unpack via ABI
 		if err := faultDisputeGameABI.UnpackIntoInterface(&rootClaim, "rootClaim", rootClaimResult); err != nil {
-			fmt.Printf("Failed to unpack rootClaim, got error: %v (result len: %d, data: %x)\n", err, len(rootClaimResult), rootClaimResult)
+			log.Debug("Failed to unpack rootClaim", "error", err, "resultLen", len(rootClaimResult), "data", fmt.Sprintf("%x", rootClaimResult))
 			return nil, common.Hash{}, nil, fmt.Errorf("failed to unpack root claim: %w", err)
 		}
 	} else {
-		fmt.Printf("Received empty rootClaimResult (len: %d)\n", len(rootClaimResult))
+		log.Debug("Received empty rootClaimResult", "len", len(rootClaimResult))
 		return nil, common.Hash{}, nil, fmt.Errorf("empty root claim result from contract")
 	}
 
@@ -486,7 +486,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	var faultDisputeGameRootClaimStorageProof [][]byte
 
 	if rootClaimProofIndex == -1 {
-		fmt.Printf("Root claim proof not found\n")
+		log.Debug("Root claim proof not found")
 		return nil, common.Hash{}, nil, fmt.Errorf("root claim proof not found")
 	} else {
 		// Convert root claim storage proof to bytes
@@ -508,7 +508,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	var faultDisputeGameStatusStorageProof [][]byte
 
 	if statusProofIndex == -1 {
-		fmt.Printf("Status proof not found\n")
+		log.Debug("Status proof not found")
 		return nil, common.Hash{}, nil, fmt.Errorf("status proof not found")
 	} else {
 		// Convert status storage proof to bytes
@@ -540,7 +540,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	if len(createdAtResult) >= 8 {
 		// Parse as uint64 from the last 8 bytes
 		createdAt = new(big.Int).SetBytes(createdAtResult[len(createdAtResult)-8:]).Uint64()
-		fmt.Printf("Parsed createdAt: %d\n", createdAt)
+		log.Debug("Parsed createdAt", "timestamp", createdAt)
 	} else {
 		return nil, common.Hash{}, nil, fmt.Errorf("invalid createdAt result")
 	}
@@ -563,7 +563,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	if len(resolvedAtResult) >= 8 {
 		// Parse as uint64 from the last 8 bytes
 		resolvedAt = new(big.Int).SetBytes(resolvedAtResult[len(resolvedAtResult)-8:]).Uint64()
-		fmt.Printf("Parsed resolvedAt: %d\n", resolvedAt)
+		log.Debug("Parsed resolvedAt", "timestamp", resolvedAt)
 	} else {
 		return nil, common.Hash{}, nil, fmt.Errorf("invalid resolvedAt result")
 	}
