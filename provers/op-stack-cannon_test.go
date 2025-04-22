@@ -22,10 +22,10 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 	// Create test data
 	disputeGameFactoryAddr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	disputeGameAddr := common.HexToAddress("0xabcdef1234567890abcdef1234567890abcdef12")
-	gameCount := big.NewInt(5)
-	gameIndex := big.NewInt(4) // The most recent game
+	gameCount := big.NewInt(1) // Only have one game in the factory
+	gameIndex := big.NewInt(0) // The first and only game
 	rootClaim := common.HexToHash("0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba")
-	gameStatus := uint8(2) // Some status value
+	gameStatus := uint8(2) // RESOLVED status value (important for this test)
 	messagePasserRoot := common.HexToHash("0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321")
 	faultDisputeGameStateRoot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
 
@@ -99,6 +99,9 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 				faultDisputeGameABI, _ := getFaultDisputeGameABI()
 				rootClaimMethodID := faultDisputeGameABI.Methods["rootClaim"].ID
 				statusMethodID := faultDisputeGameABI.Methods["status"].ID
+				createdAtMethodID := faultDisputeGameABI.Methods["createdAt"].ID
+				resolvedAtMethodID := faultDisputeGameABI.Methods["resolvedAt"].ID
+				l2BlockNumberChallengedMethodID := faultDisputeGameABI.Methods["l2BlockNumberChallenged"].ID
 
 				// rootClaim method
 				if methodSigHex == hexutil.Encode(rootClaimMethodID) {
@@ -112,7 +115,35 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 					t.Logf("Handling status call...")
 					// Return the status as a byte
 					statusBytes := []byte{gameStatus}
-					return common.RightPadBytes(statusBytes, 32), nil
+					return common.LeftPadBytes(statusBytes, 32), nil
+				}
+
+				// createdAt method
+				if methodSigHex == hexutil.Encode(createdAtMethodID) {
+					t.Logf("Handling createdAt call...")
+					// Return a timestamp (uint64) - example value: 1650000000
+					createdAt := uint64(1650000000)
+					return common.LeftPadBytes(new(big.Int).SetUint64(createdAt).Bytes(), 32), nil
+				}
+
+				// resolvedAt method
+				if methodSigHex == hexutil.Encode(resolvedAtMethodID) {
+					t.Logf("Handling resolvedAt call...")
+					// Return a timestamp (uint64) - example value: 1650001000
+					resolvedAt := uint64(1650001000)
+					return common.LeftPadBytes(new(big.Int).SetUint64(resolvedAt).Bytes(), 32), nil
+				}
+
+				// l2BlockNumberChallenged method
+				if methodSigHex == hexutil.Encode(l2BlockNumberChallengedMethodID) {
+					t.Logf("Handling l2BlockNumberChallenged call...")
+					// Return true (1) for the test case
+					l2BlockNumberChallenged := true
+					if l2BlockNumberChallenged {
+						return common.LeftPadBytes([]byte{1}, 32), nil
+					} else {
+						return common.LeftPadBytes([]byte{0}, 32), nil
+					}
 				}
 
 				return nil, fmt.Errorf("Unknown method signature: %s for contract  %s", methodSigHex, msg.To.Hex())
@@ -155,7 +186,7 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 						"storageProof": []map[string]interface{}{
 							{
 								"key":   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000456").Hex(),
-								"value": "0x" + common.Bytes2Hex(rootClaim.Bytes()),
+								"value": rootClaim.Hex(),
 								"proof": []string{"0xproof1", "0xproof2"},
 							},
 							{

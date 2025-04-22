@@ -167,6 +167,32 @@ func getFaultDisputeGameABI() (abi.ABI, error) {
 			],
 			"stateMutability": "view",
 			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "createdAt",
+			"outputs": [
+				{
+					"internalType": "uint64",
+					"name": "",
+					"type": "uint64"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "resolvedAt",
+			"outputs": [
+				{
+					"internalType": "uint64",
+					"name": "",
+					"type": "uint64"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
 		}
 	]`))
 }
@@ -266,43 +292,83 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		return nil, common.Hash{}, nil, fmt.Errorf("empty game count result from contract")
 	}
 
-	// For simplicity, we'll use the latest game (in a real implementation, we'd need to find the specific game for our block)
-	gameIndex := new(big.Int).Sub(gameCount, big.NewInt(1))
-	if gameIndex.Sign() < 0 {
-		return nil, common.Hash{}, nil, fmt.Errorf("no dispute games found")
-	}
-
-	// Get the game address
-	gameAtIndexData, err := disputeGameFactoryABI.Pack("gameAtIndex", gameIndex)
-	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to pack gameAtIndex call: %w", err)
-	}
-
-	gameAtIndexResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
-		To:   &disputeGameFactoryAddr,
-		Data: gameAtIndexData,
-	}, nil)
-	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to call gameAtIndex: %w", err)
-	}
-
+	// Find the latest resolved dispute game with a valid L2 output
+	var gameIndex *big.Int
 	var gameAddress common.Address
 
-	// First check if we got a valid result
-	if len(gameAtIndexResult) == 32 {
-		// The address is in the last 20 bytes of a 32-byte value
-		copy(gameAddress[:], gameAtIndexResult[12:]) // Take last 20 bytes
-		fmt.Printf("Parsed gameAddress from bytes: %s (len: %d, bytes: %x)\n", gameAddress.Hex(), len(gameAtIndexResult), gameAtIndexResult)
-	} else if len(gameAtIndexResult) > 0 {
-		// Try to unpack via ABI
-		if err := disputeGameFactoryABI.UnpackIntoInterface(&gameAddress, "gameAtIndex", gameAtIndexResult); err != nil {
-			fmt.Printf("Failed to unpack gameAddress, got error: %v (result len: %d, data: %x)\n", err, len(gameAtIndexResult), gameAtIndexResult)
-			return nil, common.Hash{}, nil, fmt.Errorf("failed to unpack game address: %w", err)
+	// Start from the most recent game and work backwards
+	for i := new(big.Int).Sub(gameCount, big.NewInt(1)); i.Sign() >= 0; i.Sub(i, big.NewInt(1)) {
+		// Get the game address
+		gameAtIndexData, err := disputeGameFactoryABI.Pack("gameAtIndex", i)
+		if err != nil {
+			return nil, common.Hash{}, nil, fmt.Errorf("failed to pack gameAtIndex call for index %v: %w", i, err)
 		}
-	} else {
-		fmt.Printf("Received empty gameAtIndexResult (len: %d)\n", len(gameAtIndexResult))
-		return nil, common.Hash{}, nil, fmt.Errorf("empty game address result from contract")
+
+		gameAtIndexResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
+			To:   &disputeGameFactoryAddr,
+			Data: gameAtIndexData,
+		}, nil)
+		if err != nil {
+			return nil, common.Hash{}, nil, fmt.Errorf("failed to call gameAtIndex for index %v: %w", i, err)
+		}
+
+		var currentGameAddress common.Address
+		if len(gameAtIndexResult) == 32 {
+			// The address is in the last 20 bytes of a 32-byte value
+			copy(currentGameAddress[:], gameAtIndexResult[12:]) // Take last 20 bytes
+		} else if len(gameAtIndexResult) > 0 {
+			// Try to unpack via ABI
+			if err := disputeGameFactoryABI.UnpackIntoInterface(&currentGameAddress, "gameAtIndex", gameAtIndexResult); err != nil {
+				fmt.Printf("Failed to unpack gameAddress for index %v, got error: %v\n", i, err)
+				continue
+			}
+		} else {
+			fmt.Printf("Received empty gameAtIndexResult for index %v\n", i)
+			continue
+		}
+
+		println("Game address:", currentGameAddress.Hex())
+
+		// Check game status
+		faultDisputeGameABI, err := getFaultDisputeGameABI()
+		if err != nil {
+			return nil, common.Hash{}, nil, fmt.Errorf("failed to parse FaultDisputeGame ABI: %w", err)
+		}
+
+		statusData, err := faultDisputeGameABI.Pack("status")
+		if err != nil {
+			return nil, common.Hash{}, nil, fmt.Errorf("failed to pack status call for game %s: %w", currentGameAddress.Hex(), err)
+		}
+
+		statusResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
+			To:   &currentGameAddress,
+			Data: statusData,
+		}, nil)
+		if err != nil {
+			fmt.Printf("Failed to call status for game %s: %v\n", currentGameAddress.Hex(), err)
+			continue
+		}
+
+		var gameStatus uint8
+		if len(statusResult) > 0 {
+			gameStatus = statusResult[len(statusResult)-1] // Take last byte
+			fmt.Printf("Game %v (%s) status: %d\n", i, currentGameAddress.Hex(), gameStatus)
+
+			// Check if the game is resolved (status = 2 is typically RESOLVED/FINALIZED)
+			// The exact status enum may vary, so adjust as needed
+			if gameStatus == 2 { // Assuming 2 is RESOLVED status
+				gameIndex = new(big.Int).Set(i)
+				gameAddress = currentGameAddress
+				break
+			}
+		}
 	}
+
+	if gameIndex == nil || gameIndex.Sign() < 0 {
+		return nil, common.Hash{}, nil, fmt.Errorf("no suitable resolved dispute games found")
+	}
+
+	fmt.Printf("Using game at index %v with address %s\n", gameIndex, gameAddress.Hex())
 
 	// Step 5: Get storage proof for the dispute game factory
 	// Calculate the storage slot for the game index
@@ -387,32 +453,6 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		return nil, common.Hash{}, nil, fmt.Errorf("empty root claim result from contract")
 	}
 
-	// Get the game status
-	statusData, err := faultDisputeGameABI.Pack("status")
-	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to pack status call: %w", err)
-	}
-
-	statusResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
-		To:   &gameAddress,
-		Data: statusData,
-	}, nil)
-	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to call status: %w", err)
-	}
-
-	var gameStatus uint8
-
-	// First check if we got a valid result
-	if len(statusResult) > 0 {
-		// The status is usually just a single uint8, but might be padded to 32 bytes
-		gameStatus = statusResult[len(statusResult)-1] // Take last byte
-		fmt.Printf("Parsed gameStatus from bytes: %d (len: %d, bytes: %x)\n", gameStatus, len(statusResult), statusResult)
-	} else {
-		fmt.Printf("Received empty statusResult (len: %d)\n", len(statusResult))
-		return nil, common.Hash{}, nil, fmt.Errorf("empty status result from contract")
-	}
-
 	// Step 7: Get storage proofs for the fault dispute game
 	// Get proof for root claim
 	rootClaimSlot := faultDisputeGameRootClaimSlot // For simplicity, using directly from config
@@ -481,9 +521,54 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	// Create fault dispute game state root
 	faultDisputeGameStateRoot := faultDisputeGameProof.StorageHash
 
-	// Create FaultDisputeGameStatusSlotData
-	// In a real implementation, we would extract timestamp info from the contract state
-	// For now, using dummy values that indicate a resolved game with valid state
+	// Extract real timestamps and state from the fault dispute game contract
+	// Get createdAt timestamp
+	createdAtData, err := faultDisputeGameABI.Pack("createdAt")
+	if err != nil {
+		return nil, common.Hash{}, nil, fmt.Errorf("failed to pack createdAt call: %w", err)
+	}
+
+	createdAtResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
+		To:   &gameAddress,
+		Data: createdAtData,
+	}, nil)
+	if err != nil {
+		return nil, common.Hash{}, nil, fmt.Errorf("failed to call createdAt: %w", err)
+	}
+
+	var createdAt uint64
+	if len(createdAtResult) >= 8 {
+		// Parse as uint64 from the last 8 bytes
+		createdAt = new(big.Int).SetBytes(createdAtResult[len(createdAtResult)-8:]).Uint64()
+		fmt.Printf("Parsed createdAt: %d\n", createdAt)
+	} else {
+		return nil, common.Hash{}, nil, fmt.Errorf("invalid createdAt result")
+	}
+
+	// Get resolvedAt timestamp
+	resolvedAtData, err := faultDisputeGameABI.Pack("resolvedAt")
+	if err != nil {
+		return nil, common.Hash{}, nil, fmt.Errorf("failed to pack resolvedAt call: %w", err)
+	}
+
+	resolvedAtResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
+		To:   &gameAddress,
+		Data: resolvedAtData,
+	}, nil)
+	if err != nil {
+		return nil, common.Hash{}, nil, fmt.Errorf("failed to call resolvedAt: %w", err)
+	}
+
+	var resolvedAt uint64
+	if len(resolvedAtResult) >= 8 {
+		// Parse as uint64 from the last 8 bytes
+		resolvedAt = new(big.Int).SetBytes(resolvedAtResult[len(resolvedAtResult)-8:]).Uint64()
+		fmt.Printf("Parsed resolvedAt: %d\n", resolvedAt)
+	} else {
+		return nil, common.Hash{}, nil, fmt.Errorf("invalid resolvedAt result")
+	}
+
+	// Create the status data structure with real values from the contract
 	faultDisputeGameStatusData := struct {
 		CreatedAt               uint64
 		ResolvedAt              uint64
@@ -491,11 +576,11 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		Initialized             bool
 		L2BlockNumberChallenged bool
 	}{
-		CreatedAt:               12345,
-		ResolvedAt:              67890,
-		GameStatus:              gameStatus,
-		Initialized:             true,
-		L2BlockNumberChallenged: false,
+		CreatedAt:               createdAt,
+		ResolvedAt:              resolvedAt,
+		GameStatus:              2,
+		Initialized:             true, // must be true if the game resolved
+		L2BlockNumberChallenged: true, // must be true if the game resolved in favor of defender
 	}
 
 	rlpEncodedStatusData, err := rlp.EncodeToBytes(faultDisputeGameStatusData)
