@@ -30,33 +30,43 @@ To run the E2E tests:
 
 ### 1. Kurtosis Configuration
 
-Create a Kurtosis YAML configuration for a mini OP-Stack network:
+First, install Kurtosis from https://docs.kurtosis.com/install/
+
+A Kurtosis YAML configuration file for the OP-Stack testnet is included in the repository. This file defines the network topology and parameters.
 
 ```yaml
 # op-stack-testnet.yaml
 optimism_package:
   chains:
-    # L1 Chain
-    - participants: 
-      - el_type: geth  # L1 execution client
-      network_params:
-        name: l1-chain
-        network_id: 1234
-
-    # First L2 chain
+    # L2 chains - will automatically connect to the L1 chain 
     - participants:
       - el_type: op-geth  # L2 sequencer
+        cl_type: op-node
       network_params:
         name: l2-chain-1
         network_id: 12345
-        
+
     # Second L2 chain
     - participants:
       - el_type: op-geth  # L2 sequencer
+        cl_type: op-node
       network_params:
         name: l2-chain-2
         network_id: 12346
+ethereum_package:
+  # L1 chain configuration
+  participants:
+  - el_type: geth  # L1 execution client
+    cl_type: teku  # L1 consensus client
+    cl_image: consensys/teku:25.4.0
+  network_params:
+    preset: minimal
+    genesis_delay: 5
+    network_id: 1234  # L1 chain ID
+    additional_preloaded_contracts: '...'
 ```
+
+The setup script provides robust endpoint detection by dynamically discovering the active Kurtosis enclave and extracting service endpoints, with fallbacks to handle variations in service naming from the Kurtosis packages.
 
 ### 2. Deploy Kurtosis Network
 

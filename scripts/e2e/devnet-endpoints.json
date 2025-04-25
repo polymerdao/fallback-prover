@@ -1,0 +1,7 @@
+{
+  "l1_rpc_url": "http://localhost:58516",
+  "l2_1_rpc_url": "http://localhost:59148",
+  "l2_2_rpc_url": "http://localhost:59422",
+  "l2_1_chain_id": 12345,
+  "l2_2_chain_id": 12346
+}

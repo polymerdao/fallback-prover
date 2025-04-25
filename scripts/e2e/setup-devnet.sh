@@ -20,53 +20,130 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-echo "Creating configuration file for OP-Stack devnet..."
+echo "Using existing OP-Stack devnet configuration..."
 
-# Create Kurtosis config file
-cat > op-stack-testnet.yaml << EOF
-optimism_package:
-  chains:
-    # L1 Chain
-    - participants: 
-      - el_type: geth  # L1 execution client
-      network_params:
-        name: l1-chain
-        network_id: 1234
-
-    # First L2 chain
-    - participants:
-      - el_type: op-geth  # L2 sequencer
-      network_params:
-        name: l2-chain-1
-        network_id: 12345
-        
-    # Second L2 chain
-    - participants:
-      - el_type: op-geth  # L2 sequencer
-      network_params:
-        name: l2-chain-2
-        network_id: 12346
-EOF
+# Config file is already created and versioned in the repository
+# Modify it if needed at op-stack-testnet.yaml
 
 echo "Starting Kurtosis OP-Stack devnet..."
 kurtosis run github.com/ethpandaops/optimism-package --args-file ./op-stack-testnet.yaml
 
 # Get the service information
 echo "Retrieving endpoint information from Kurtosis..."
-SERVICES_INFO=$(kurtosis service ls --output json)
+# Get the first running enclave (most recent one)
+ENCLAVE_NAME=$(kurtosis enclave ls | grep RUNNING | awk '{print $2}' | head -1)
+if [ -z "$ENCLAVE_NAME" ]; then
+  echo "Error: No Kurtosis enclaves found. Make sure the devnet is running."
+  exit 1
+fi
+echo "Using Kurtosis enclave: $ENCLAVE_NAME"
 
-# Extract RPC URLs
-L1_RPC_URL=$(echo "$SERVICES_INFO" | jq -r '.[] | select(.name == "l1-chain-executionclient") | .ports.rpc.url')
-L2_1_RPC_URL=$(echo "$SERVICES_INFO" | jq -r '.[] | select(.name == "l2-chain-1-sequencer") | .ports.rpc.url')
-L2_2_RPC_URL=$(echo "$SERVICES_INFO" | jq -r '.[] | select(.name == "l2-chain-2-sequencer") | .ports.rpc.url')
+ENCLAVE_INFO=$(kurtosis enclave inspect "$ENCLAVE_NAME")
 
-echo "Devnet setup complete!"
+# Store the raw output for parsing
+SERVICE_OUTPUT="$ENCLAVE_INFO"
+
+# Print all available services for debugging
+echo "Available Kurtosis services:"
+echo "$SERVICE_OUTPUT"
+
+# Extract RPC endpoints directly using simple grep patterns
+echo "Extracting RPC endpoints from service output..."
+
+# Direct extraction for L1
+L1_PORT=$(echo "$SERVICE_OUTPUT" | grep -A10 "el-1-geth-teku" | grep -m1 "rpc:" | grep -o "127\.0\.0\.1:[0-9]\+" | cut -d: -f2)
+if [ -n "$L1_PORT" ]; then
+  L1_RPC_URL="http://localhost:$L1_PORT"
+  echo "Found L1 RPC at port $L1_PORT"
+else
+  echo "Could not find L1 RPC port"
+  L1_RPC_URL=""
+fi
+
+# Direct extraction for L2-1
+L2_1_PORT=$(echo "$SERVICE_OUTPUT" | grep -A10 "op-el-12345" | grep -m1 "rpc:" | grep -o "127\.0\.0\.1:[0-9]\+" | cut -d: -f2)
+if [ -n "$L2_1_PORT" ]; then
+  L2_1_RPC_URL="http://localhost:$L2_1_PORT"
+  echo "Found L2-1 RPC at port $L2_1_PORT"
+else
+  echo "Could not find L2-1 RPC port"
+  L2_1_RPC_URL=""
+fi
+
+# Direct extraction for L2-2
+L2_2_PORT=$(echo "$SERVICE_OUTPUT" | grep -A10 "op-el-12346" | grep -m1 "rpc:" | grep -o "127\.0\.0\.1:[0-9]\+" | cut -d: -f2)
+if [ -n "$L2_2_PORT" ]; then
+  L2_2_RPC_URL="http://localhost:$L2_2_PORT"
+  echo "Found L2-2 RPC at port $L2_2_PORT"
+else
+  echo "Could not find L2-2 RPC port"
+  L2_2_RPC_URL=""
+fi
+
+echo "Endpoints found:"
 echo "L1 RPC URL: $L1_RPC_URL"
 echo "L2-1 RPC URL: $L2_1_RPC_URL"
 echo "L2-2 RPC URL: $L2_2_RPC_URL"
 
-# Save the endpoints to a file for later use
-cat > devnet-endpoints.json << EOF
+# Verify that we have valid URLs
+validate_url() {
+  local url="$1"
+  local name="$2"
+
+  if [ -z "$url" ]; then
+    echo "Error: Could not extract $name URL from Kurtosis services" >&2
+    echo "Available services output:" >&2
+    echo "$SERVICE_OUTPUT" | head -30 >&2
+    return 1
+  fi
+
+  # Basic URL validation
+  if ! [[ "$url" =~ ^https?:// ]]; then
+    echo "Warning: $name URL ($url) does not start with http:// or https://" >&2
+  fi
+
+  return 0
+}
+
+# Function to test RPC endpoint connectivity
+test_rpc_connection() {
+  local url="$1"
+  local name="$2"
+
+  echo "Testing connectivity to $name at $url..."
+
+  # Try to get chain ID
+  local result=$(curl -s -X POST -H "Content-Type: application/json" \
+    --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+    "$url")
+
+  if [ $? -ne 0 ] || [ -z "$result" ]; then
+    echo "ERROR: Could not connect to $name at $url" >&2
+    return 1
+  fi
+
+  local chain_id=$(echo "$result" | jq -r '.result')
+  if [ -z "$chain_id" ] || [ "$chain_id" = "null" ]; then
+    echo "WARNING: Could not get chain ID from $name at $url" >&2
+    echo "Response: $result" >&2
+    return 1
+  fi
+
+  echo "$name is accessible. Chain ID: $chain_id"
+  return 0
+}
+
+# We need ALL endpoints for the script to succeed
+if validate_url "$L1_RPC_URL" "L1 RPC" &&
+   validate_url "$L2_1_RPC_URL" "L2-1 RPC" &&
+   validate_url "$L2_2_RPC_URL" "L2-2 RPC"; then
+  echo "Devnet setup complete!"
+  echo "L1 RPC URL: $L1_RPC_URL"
+  echo "L2-1 RPC URL: $L2_1_RPC_URL"
+  echo "L2-2 RPC URL: $L2_2_RPC_URL"
+
+  # Save the endpoints to a file for later use
+  cat > devnet-endpoints.json << EOF
 {
   "l1_rpc_url": "$L1_RPC_URL",
   "l2_1_rpc_url": "$L2_1_RPC_URL",
@@ -76,4 +153,26 @@ cat > devnet-endpoints.json << EOF
 }
 EOF
 
-echo "Endpoint information saved to devnet-endpoints.json"
+  echo "Endpoint information saved to devnet-endpoints.json"
+
+  # If TEST_CONNECTIONS is set, test connectivity to all endpoints
+  if [ "${TEST_CONNECTIONS:-}" = "1" ]; then
+    echo "Testing connectivity to all endpoints..."
+    test_rpc_connection "$L1_RPC_URL" "L1 chain"
+    test_rpc_connection "$L2_1_RPC_URL" "L2-1 chain"
+    test_rpc_connection "$L2_2_RPC_URL" "L2-2 chain"
+  fi
+else
+  echo "Failed to extract all required endpoints from Kurtosis." >&2
+  echo "Please check the Kurtosis logs and make sure the services are running properly." >&2
+  echo "Available services:" >&2
+  echo "$SERVICE_OUTPUT" >&2
+
+  # Show what we did find for debugging
+  echo "Partial results:"
+  echo "L1 RPC URL: $L1_RPC_URL"
+  echo "L2-1 RPC URL: $L2_1_RPC_URL"
+  echo "L2-2 RPC URL: $L2_2_RPC_URL"
+
+  exit 1
+fi
