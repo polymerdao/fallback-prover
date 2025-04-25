@@ -47,11 +47,11 @@ SERVICE_OUTPUT="$ENCLAVE_INFO"
 echo "Available Kurtosis services:"
 echo "$SERVICE_OUTPUT"
 
-# Extract RPC endpoints directly using simple grep patterns
+# Extract RPC endpoints directly using awk patterns
 echo "Extracting RPC endpoints from service output..."
 
-# Direct extraction for L1
-L1_PORT=$(echo "$SERVICE_OUTPUT" | grep -A10 "el-1-geth-teku" | grep -m1 "rpc:" | grep -o "127\.0\.0\.1:[0-9]\+" | cut -d: -f2)
+# Direct extraction for L1 using awk
+L1_PORT=$(echo "$SERVICE_OUTPUT" | awk '/el-1-geth-teku/{flag=1;next}/^[a-zA-Z0-9]/{if(flag==1)flag=0}/rpc:/{if(flag==1){if(match($0,/127\.0\.0\.1:[0-9]+/)){print substr($0,RSTART+10,RLENGTH-10);exit}}}')
 if [ -n "$L1_PORT" ]; then
   L1_RPC_URL="http://localhost:$L1_PORT"
   echo "Found L1 RPC at port $L1_PORT"
@@ -60,8 +60,8 @@ else
   L1_RPC_URL=""
 fi
 
-# Direct extraction for L2-1
-L2_1_PORT=$(echo "$SERVICE_OUTPUT" | grep -A10 "op-el-12345" | grep -m1 "rpc:" | grep -o "127\.0\.0\.1:[0-9]\+" | cut -d: -f2)
+# Direct extraction for L2-1 using awk
+L2_1_PORT=$(echo "$SERVICE_OUTPUT" | awk '/op-el-12345/{flag=1;next}/^[a-zA-Z0-9]/{if(flag==1)flag=0}/rpc:/{if(flag==1){if(match($0,/127\.0\.0\.1:[0-9]+/)){print substr($0,RSTART+10,RLENGTH-10);exit}}}')
 if [ -n "$L2_1_PORT" ]; then
   L2_1_RPC_URL="http://localhost:$L2_1_PORT"
   echo "Found L2-1 RPC at port $L2_1_PORT"
@@ -71,7 +71,7 @@ else
 fi
 
 # Direct extraction for L2-2
-L2_2_PORT=$(echo "$SERVICE_OUTPUT" | grep -A10 "op-el-12346" | grep -m1 "rpc:" | grep -o "127\.0\.0\.1:[0-9]\+" | cut -d: -f2)
+L2_2_PORT=$(echo "$SERVICE_OUTPUT" | awk '/op-el-12346/{flag=1;next}/^[a-zA-Z0-9]/{if(flag==1)flag=0}/rpc:/{if(flag==1){if(match($0,/127\.0\.0\.1:[0-9]+/)){print substr($0,RSTART+10,RLENGTH-10);exit}}}')
 if [ -n "$L2_2_PORT" ]; then
   L2_2_RPC_URL="http://localhost:$L2_2_PORT"
   echo "Found L2-2 RPC at port $L2_2_PORT"

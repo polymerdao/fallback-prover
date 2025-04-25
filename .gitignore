@@ -2,3 +2,4 @@
 /cmd/cmd
 /bin/
 .env
+scripts/e2e/devnet-endpoints.json
