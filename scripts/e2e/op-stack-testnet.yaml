@@ -8,6 +8,8 @@ optimism_package:
       network_params:
         name: l2-chain-1
         network_id: 12345
+      proposer_params:
+        proposal_interval: 1m
 
     # Second L2 chain
     - participants:
@@ -17,6 +19,9 @@ optimism_package:
       network_params:
         name: l2-chain-2
         network_id: 12346
+      proposer_params:
+        proposal_interval: 1m
+
 ethereum_package:
   # L1 chain configuration
   participants:

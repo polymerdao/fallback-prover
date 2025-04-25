@@ -30,15 +30,34 @@ kurtosis run github.com/ethpandaops/optimism-package --args-file ./op-stack-test
 
 # Get the service information
 echo "Retrieving endpoint information from Kurtosis..."
-# Get the first running enclave (most recent one)
-ENCLAVE_NAME=$(kurtosis enclave ls | grep RUNNING | awk '{print $2}' | head -1)
+# List running enclaves and find the one with our services
+echo "Searching for the correct Kurtosis enclave..."
+RUNNING_ENCLAVES=$(kurtosis enclave ls | grep RUNNING | awk '{print $2}')
+
+# Initialize variables
+ENCLAVE_NAME=""
+ENCLAVE_INFO=""
+
+# Loop through each enclave to find the one with our services
+for enclave in $RUNNING_ENCLAVES; do
+  echo "Checking enclave: $enclave"
+  # Get the enclave info
+  CURRENT_INFO=$(kurtosis enclave inspect "$enclave")
+
+  # Check if this enclave has our OP-Stack services
+  if echo "$CURRENT_INFO" | grep -q "op-el-12345\|op-el-12346"; then
+    echo "Found OP-Stack services in enclave: $enclave"
+    ENCLAVE_NAME="$enclave"
+    ENCLAVE_INFO="$CURRENT_INFO"
+    break
+  fi
+done
+
 if [ -z "$ENCLAVE_NAME" ]; then
-  echo "Error: No Kurtosis enclaves found. Make sure the devnet is running."
+  echo "Error: Could not find any Kurtosis enclave with OP-Stack services. Make sure the devnet is running."
   exit 1
 fi
 echo "Using Kurtosis enclave: $ENCLAVE_NAME"
-
-ENCLAVE_INFO=$(kurtosis enclave inspect "$ENCLAVE_NAME")
 
 # Store the raw output for parsing
 SERVICE_OUTPUT="$ENCLAVE_INFO"

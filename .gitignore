@@ -3,3 +3,4 @@
 /bin/
 .env
 scripts/e2e/devnet-endpoints.json
+op-deployer-configs/
