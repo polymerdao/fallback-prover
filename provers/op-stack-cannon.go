@@ -314,15 +314,8 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		}
 
 		var currentGameAddress common.Address
-		if len(gameAtIndexResult) == 32 {
-			// The address is in the last 20 bytes of a 32-byte value
-			copy(currentGameAddress[:], gameAtIndexResult[12:]) // Take last 20 bytes
-		} else if len(gameAtIndexResult) > 0 {
-			// Try to unpack via ABI
-			if err := disputeGameFactoryABI.UnpackIntoInterface(&currentGameAddress, "gameAtIndex", gameAtIndexResult); err != nil {
-				log.Debug("Failed to unpack gameAddress", "index", i, "error", err)
-				continue
-			}
+		if len(gameAtIndexResult) > 0 {
+			copy(currentGameAddress[:], gameAtIndexResult[len(gameAtIndexResult)-20:]) // Take last 20 bytes
 		} else {
 			log.Debug("Received empty gameAtIndexResult", "index", i)
 			continue
