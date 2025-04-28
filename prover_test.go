@@ -31,8 +31,6 @@ func TestProver_GenerateProveCalldata(t *testing.T) {
 	// RLP encode headers
 	rlpEncodedL1Header, err := rlp.EncodeToBytes(l1Header)
 	require.NoError(t, err)
-	rlpEncodedL2Header, err := rlp.EncodeToBytes(l2Header)
-	require.NoError(t, err)
 
 	// Mock settled state proof data
 	mockSettledStateProof := []byte("mock-settled-state-proof")
@@ -75,8 +73,8 @@ func TestProver_GenerateProveCalldata(t *testing.T) {
 	}
 
 	mockBedrockProver := &testutil.MockOPStackBedrockProver{
-		GenerateSettledStateProofFunc: func(ctx context.Context, config *types2.L2ConfigInfo) ([]byte, common.Hash, []byte, error) {
-			return mockSettledStateProof, l2Header.Root, rlpEncodedL2Header, nil
+		GenerateSettledStateProofFunc: func(ctx context.Context, l1BlockNumber *big.Int, config *types2.L2ConfigInfo) ([]byte, *types.Header, error) {
+			return mockSettledStateProof, l2Header, nil
 		},
 	}
 
@@ -180,8 +178,6 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 	// RLP encode headers
 	rlpEncodedL1Header, err := rlp.EncodeToBytes(l1Header)
 	require.NoError(t, err)
-	rlpEncodedL2Header, err := rlp.EncodeToBytes(l2Header)
-	require.NoError(t, err)
 
 	// Mock settled state proof data
 	mockSettledStateProof := []byte("mock-settled-state-proof")
@@ -248,8 +244,8 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 	}
 
 	mockBedrockProver := &testutil.MockOPStackBedrockProver{
-		GenerateSettledStateProofFunc: func(ctx context.Context, config *types2.L2ConfigInfo) ([]byte, common.Hash, []byte, error) {
-			return mockSettledStateProof, l2Header.Root, rlpEncodedL2Header, nil
+		GenerateSettledStateProofFunc: func(ctx context.Context, l1BlockNumber *big.Int, config *types2.L2ConfigInfo) ([]byte, *types.Header, error) {
+			return mockSettledStateProof, l2Header, nil
 		},
 	}
 
@@ -384,8 +380,6 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 	// RLP encode headers
 	rlpEncodedL1Header, err := rlp.EncodeToBytes(l1Header)
 	require.NoError(t, err)
-	rlpEncodedL2Header, err := rlp.EncodeToBytes(l2Header)
-	require.NoError(t, err)
 
 	// Mock settled state proof data
 	mockSettledStateProof := []byte("mock-settled-state-proof")
@@ -452,8 +446,8 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 	}
 
 	mockCannonProver := &testutil.MockOPStackCannonProver{
-		GenerateSettledStateProofFunc: func(ctx context.Context, config *types2.L2ConfigInfo) ([]byte, common.Hash, []byte, error) {
-			return mockSettledStateProof, l2Header.Root, rlpEncodedL2Header, nil
+		GenerateSettledStateProofFunc: func(ctx context.Context, l1BlockNumber *big.Int, config *types2.L2ConfigInfo) ([]byte, *types.Header, error) {
+			return mockSettledStateProof, l2Header, nil
 		},
 	}
 

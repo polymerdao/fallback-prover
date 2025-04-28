@@ -113,15 +113,20 @@ func TestNativeProver_EncodeProveCalldata(t *testing.T) {
 	prover, err := NewNativeProver()
 	require.NoError(t, err)
 
+	// Create ProveScalarArgs struct
+	proveArgs := types.ProveScalarArgs{
+		ChainID:          chainID,
+		ContractAddr:     contractAddr,
+		StorageSlot:      storageSlot,
+		StorageValue:     storageValue,
+		L2WorldStateRoot: l2WorldStateRoot,
+	}
+
 	// Call the method being tested
 	calldata, err := prover.EncodeProveCalldata(
-		chainID,
-		contractAddr,
-		storageSlot,
-		storageValue,
+		proveArgs,
 		rlpEncodedL1Header,
 		rlpEncodedL2Header,
-		l2WorldStateRoot,
 		settledStateProof,
 		l2StorageProof,
 		rlpEncodedContractAccount,

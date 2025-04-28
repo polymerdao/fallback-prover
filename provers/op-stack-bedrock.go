@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	types2 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -142,9 +143,10 @@ const (
 // GenerateSettledStateProof creates a proof for an OPStack Bedrock L2 against L1
 func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	ctx context.Context,
-	config *types.L2ConfigInfo) ([]byte, common.Hash, []byte, error) {
+	l1BlockNumber *big.Int,
+	config *types.L2ConfigInfo) ([]byte, *types2.Header, error) {
 	if len(config.Addresses) == 0 || len(config.StorageSlots) == 0 {
-		return nil, common.Hash{}, nil, fmt.Errorf("invalid config: addresses or slots are empty")
+		return nil, nil, fmt.Errorf("invalid config: addresses or slots are empty")
 	}
 
 	// Get the L2OutputOracle address from the config
@@ -153,18 +155,11 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	// Step 1: Get the latest L2 block
 	l2Block, err := p.l2Client.BlockByNumber(ctx, nil) // nil means latest block
 	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to get latest L2 block: %w", err)
+		return nil, nil, fmt.Errorf("failed to get latest L2 block: %w", err)
 	}
 
 	l2BlockNumber := l2Block.Number()
 	l2Header := l2Block.Header()
-	l2StateRoot := l2Header.Root
-
-	// Get the RLP encoded L2 header
-	rlpEncodedL2Header, err := rlp.EncodeToBytes(l2Header)
-	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to RLP encode L2 header: %w", err)
-	}
 
 	// Step 2: Get the L2 message passer root using eth_getProof
 	// Get the storage root (storageHash) of the L2ToL1MessagePasser contract
@@ -182,7 +177,7 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 		toBlockNumArg(l2BlockNumber),
 	)
 	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to get message passer proof: %w", err)
+		return nil, nil, fmt.Errorf("failed to get message passer proof: %w", err)
 	}
 
 	// The storageHash from the proof is the L2ToL1MessagePasser root we need
@@ -191,41 +186,41 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	// Step 3: Get the L2 output index for the L2 block using L2OutputOracle on L1
 	outputOracleABI, err := getL2OutputOracleABI()
 	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to parse L2OutputOracle ABI: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse L2OutputOracle ABI: %w", err)
 	}
 
 	outputIndexData, err := outputOracleABI.Pack("getL2OutputIndexAfter", l2BlockNumber)
 	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to pack getL2OutputIndexAfter: %w", err)
+		return nil, nil, fmt.Errorf("failed to pack getL2OutputIndexAfter: %w", err)
 	}
 
 	outputIndexResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
 		To:   &l2OutputOracleAddr,
 		Data: outputIndexData,
-	}, nil)
+	}, l1BlockNumber)
 	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to call getL2OutputIndexAfter: %w", err)
+		return nil, nil, fmt.Errorf("failed to call getL2OutputIndexAfter: %w", err)
 	}
 
 	// Properly handle the unpacking - the value is a uint256 directly in the result bytes
 	outputIndex := new(big.Int).SetBytes(outputIndexResult)
 	// Check for errors or zero index
 	if outputIndex.Cmp(big.NewInt(0)) < 0 {
-		return nil, common.Hash{}, nil, fmt.Errorf("invalid output index: %s", outputIndex.String())
+		return nil, nil, fmt.Errorf("invalid output index: %s", outputIndex.String())
 	}
 
 	// Step 4: Get the output proposal for the L2 output index
 	outputData, err := outputOracleABI.Pack("getL2Output", outputIndex)
 	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to pack getL2Output: %w", err)
+		return nil, nil, fmt.Errorf("failed to pack getL2Output: %w", err)
 	}
 
 	outputResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
 		To:   &l2OutputOracleAddr,
 		Data: outputData,
-	}, nil)
+	}, l1BlockNumber)
 	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to call getL2Output: %w", err)
+		return nil, nil, fmt.Errorf("failed to call getL2Output: %w", err)
 	}
 
 	// OutputProposal struct has 3 fields: outputRoot, timestamp, l2BlockNumber
@@ -245,7 +240,7 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	} else {
 		// Only try the ABI unpacking as a fallback
 		if err := outputOracleABI.UnpackIntoInterface(&outputProposal, "getL2Output", outputResult); err != nil {
-			return nil, common.Hash{}, nil, fmt.Errorf("failed to unpack output proposal: %w", err)
+			return nil, nil, fmt.Errorf("failed to unpack output proposal: %w", err)
 		}
 	}
 
@@ -260,14 +255,20 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 			common.LeftPadBytes(baseSlot.Bytes(), 32),
 		)
 	} else {
-		return nil, common.Hash{}, nil, fmt.Errorf("no storage slots provided in config")
+		return nil, nil, fmt.Errorf("no storage slots provided in config")
 	}
 
 	// Get the storage proof from the L1 node
 	var proof types.StorageProofResult
-	err = p.l1RPC.CallContext(ctx, &proof, "eth_getProof", l2OutputOracleAddr.Hex(), []string{storageSlot.Hex()}, "latest")
+	err = p.l1RPC.CallContext(
+		ctx,
+		&proof,
+		"eth_getProof",
+		l2OutputOracleAddr.Hex(),
+		[]string{storageSlot.Hex()},
+		toBlockNumArg(l1BlockNumber))
 	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to get output oracle proof: %w", err)
+		return nil, nil, fmt.Errorf("failed to get output oracle proof: %w", err)
 	}
 
 	// Convert storage proof to bytes
@@ -286,7 +287,7 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 
 	rlpEncodedOutputOracleData, err := rlp.EncodeToBytes(account)
 	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to RLP encode account: %w", err)
+		return nil, nil, fmt.Errorf("failed to RLP encode account: %w", err)
 	}
 
 	// Convert account proof to bytes
@@ -311,8 +312,8 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	// RLP encode the final proof
 	settledStateProof, err := rlp.EncodeToBytes(settledStateProofData)
 	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to RLP encode settled state proof: %w", err)
+		return nil, nil, fmt.Errorf("failed to RLP encode settled state proof: %w", err)
 	}
 
-	return settledStateProof, l2StateRoot, rlpEncodedL2Header, nil
+	return settledStateProof, l2Header, nil
 }

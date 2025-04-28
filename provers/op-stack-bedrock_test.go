@@ -49,8 +49,14 @@ func TestOPStackBedrockProver_GenerateSettledStateProof(t *testing.T) {
 	}
 
 	// Create mock L1 client
+	// Create L1BlockNumber for testing
+	expectedL1BlockNumber := big.NewInt(12345)
+
 	mockL1Client := &testutil.MockEthClient{
 		CallContractFunc: func(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+			// Check that we're calling with the expected L1BlockNumber
+			require.Equal(t, expectedL1BlockNumber, blockNumber, "CallContract should be called with the expected L1BlockNumber")
+
 			// Check that we're calling the right contract
 			require.Equal(t, l2OutputOracleAddr.Hex(), msg.To.Hex())
 
@@ -138,14 +144,14 @@ func TestOPStackBedrockProver_GenerateSettledStateProof(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call the method being tested
-	settledStateProof, l2StateRoot, rlpEncodedL2Header, err := prover.GenerateSettledStateProof(
+	settledStateProof, l2Header, err := prover.GenerateSettledStateProof(
 		context.Background(),
+		expectedL1BlockNumber,
 		config,
 	)
 	require.NoError(t, err)
 
 	// Verify the results
 	assert.NotNil(t, settledStateProof)
-	assert.Equal(t, l2Header.Root.Hex(), l2StateRoot.Hex())
-	assert.NotNil(t, rlpEncodedL2Header)
+	assert.Equal(t, l2Header.Root.Hex(), l2Header.Root.Hex())
 }

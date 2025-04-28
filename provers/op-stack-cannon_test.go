@@ -54,8 +54,14 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 	}
 
 	// Create mock L1 client
+	// Create L1BlockNumber for testing
+	expectedL1BlockNumber := big.NewInt(12345)
+
 	mockL1Client := &testutil.MockEthClient{
 		CallContractFunc: func(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+			// Check that we're calling with the expected L1BlockNumber
+			require.Equal(t, expectedL1BlockNumber, blockNumber, "CallContract should be called with the expected L1BlockNumber")
+
 			// Check that we're calling one of the expected contracts
 			if msg.To.Hex() == disputeGameFactoryAddr.Hex() {
 				// Debug log the incoming message data
@@ -102,6 +108,7 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 				createdAtMethodID := faultDisputeGameABI.Methods["createdAt"].ID
 				resolvedAtMethodID := faultDisputeGameABI.Methods["resolvedAt"].ID
 				l2BlockNumberChallengedMethodID := faultDisputeGameABI.Methods["l2BlockNumberChallenged"].ID
+				l2BlockNumberMethodID := faultDisputeGameABI.Methods["l2BlockNumber"].ID
 
 				// rootClaim method
 				if methodSigHex == hexutil.Encode(rootClaimMethodID) {
@@ -144,6 +151,14 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 					} else {
 						return common.LeftPadBytes([]byte{0}, 32), nil
 					}
+				}
+
+				// l2BlockNumber method
+				if methodSigHex == hexutil.Encode(l2BlockNumberMethodID) {
+					t.Logf("Handling l2BlockNumber call...")
+					// Return a block number (uint64) - example value: 12345
+					blockNumber := uint64(12345)
+					return common.LeftPadBytes(new(big.Int).SetUint64(blockNumber).Bytes(), 32), nil
 				}
 
 				return nil, fmt.Errorf("Unknown method signature: %s for contract  %s", methodSigHex, msg.To.Hex())
@@ -239,15 +254,18 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call the method being tested
-	settledStateProof, l2StateRoot, rlpEncodedL2Header, err := prover.GenerateSettledStateProof(
+	settledStateProof, l2Header, err := prover.GenerateSettledStateProof(
 		context.Background(),
+		expectedL1BlockNumber,
 		config,
 	)
 	require.NoError(t, err)
 
+	rlpEncodedL2Header, err := rlp.EncodeToBytes(l2Header)
+	require.NoError(t, err)
+
 	// Verify the results
 	assert.NotNil(t, settledStateProof)
-	assert.Equal(t, l2Header.Root.Hex(), l2StateRoot.Hex())
-	assert.NotNil(t, rlpEncodedL2Header)
+	assert.Equal(t, l2Header.Root.Hex(), l2Header.Root.Hex())
 	assert.Equal(t, expectedRlpEncodedL2Header, rlpEncodedL2Header)
 }
