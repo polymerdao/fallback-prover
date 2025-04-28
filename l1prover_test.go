@@ -17,7 +17,6 @@ import (
 
 func TestL1Prover_GenerateProveL1Calldata(t *testing.T) {
 	// Create test data
-	dstL2ChainID := uint64(42161) // Arbitrum chain ID
 	l1Address := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	l1StorageSlot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
 
@@ -35,12 +34,6 @@ func TestL1Prover_GenerateProveL1Calldata(t *testing.T) {
 	mockAccountProof := [][]byte{[]byte("account-proof-1"), []byte("account-proof-2")}
 
 	// Create mock provers
-	mockRegistryProver := &testutil.MockRegistryProver{
-		GetL1BlockHashOracleFunc: func(ctx context.Context, chainID uint64) (common.Address, error) {
-			return common.HexToAddress("0x5678"), nil
-		},
-	}
-
 	mockL1OriginProver := &testutil.MockL1OriginProver{
 		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
 			return rlpEncodedL1Header, l1Block.Header(), nil
@@ -62,18 +55,19 @@ func TestL1Prover_GenerateProveL1Calldata(t *testing.T) {
 
 	// Create the L1Prover instance with mocked interfaces and real NativeProver
 	prover := &L1Prover{
-		registryProver:  mockRegistryProver,
-		l1OriginProver:  mockL1OriginProver,
-		l1StorageProver: mockStorageProver,
-		nativeProver:    nativeProver,
+		l1OriginProver:    mockL1OriginProver,
+		l1StorageProver:   mockStorageProver,
+		nativeProver:      nativeProver,
+		l1BlockHashOracle: common.HexToAddress("0x5678"),
 	}
 
 	// Call the method being tested
 	calldata, err := prover.GenerateProveL1Calldata(
 		context.Background(),
-		dstL2ChainID,
-		l1Address,
-		l1StorageSlot,
+		&ProveParams{
+			Address:     l1Address,
+			StorageSlot: l1StorageSlot,
+		},
 	)
 	require.NoError(t, err)
 

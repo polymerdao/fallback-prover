@@ -273,7 +273,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	faultDisputeGameRootClaimSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[1])))
 	faultDisputeGameStatusSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[2])))
 
-	// Step 4: Interact with the DisputeGameFactory to get information about dispute games
+	// Interact with the DisputeGameFactory to get information about dispute games
 	disputeGameFactoryABI, err := getDisputeGameFactoryABI()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse DisputeGameFactory ABI: %w", err)
