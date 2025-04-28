@@ -143,6 +143,24 @@ func (np *NativeProver) EncodeConfigureAndProveCalldata(
 	)
 }
 
+// EncodeProveL1Calldata encodes the parameters for the NativeProver.proveL1() function call
+func (np *NativeProver) EncodeProveL1Calldata(
+	proveArgs t.ProveL1ScalarArgs,
+	rlpEncodedL1Header []byte,
+	l1StorageProof [][]byte,
+	rlpEncodedContractAccount []byte,
+	l1AccountProof [][]byte,
+) ([]byte, error) {
+	return np.abi.Pack(
+		"proveL1",
+		proveArgs,
+		rlpEncodedL1Header,
+		l1StorageProof,
+		rlpEncodedContractAccount,
+		l1AccountProof,
+	)
+}
+
 // GetABI returns the ABI for the NativeProver
 // This is mainly used for testing purposes
 func (np *NativeProver) GetABI() abi.ABI {

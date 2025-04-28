@@ -56,10 +56,10 @@ func (m *MockRegistryProver) GenerateUpdateL2ConfigArgs(ctx context.Context, cha
 
 // MockL1OriginProver is a mock implementation of the provers.IL1OriginProver interface
 type MockL1OriginProver struct {
-	ProveL1OriginFunc func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Block, error)
+	ProveL1OriginFunc func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error)
 }
 
-func (m *MockL1OriginProver) ProveL1Origin(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Block, error) {
+func (m *MockL1OriginProver) ProveL1Origin(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
 	if m.ProveL1OriginFunc != nil {
 		return m.ProveL1OriginFunc(ctx, l1OracleAddress)
 	}
@@ -123,6 +123,7 @@ type MockNativeProver struct {
 	EncodeProveCalldataFunc             func(chainID *big.Int, contractAddr common.Address, storageSlot common.Hash, storageValue common.Hash, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, l2WorldStateRoot common.Hash, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error)
 	EncodeUpdateAndProveCalldataFunc    func(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error)
 	EncodeConfigureAndProveCalldataFunc func(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error)
+	EncodeProveL1CalldataFunc           func(proveArgs t.ProveL1ScalarArgs, rlpEncodedL1Header []byte, l1StorageProof [][]byte, rlpEncodedContractAccount []byte, l1AccountProof [][]byte) ([]byte, error)
 	GetABIFunc                          func() abi.ABI
 }
 
@@ -143,6 +144,25 @@ func (m *MockNativeProver) EncodeUpdateAndProveCalldata(updateArgs t.UpdateL2Con
 func (m *MockNativeProver) EncodeConfigureAndProveCalldata(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error) {
 	if m.EncodeConfigureAndProveCalldataFunc != nil {
 		return m.EncodeConfigureAndProveCalldataFunc(updateArgs, proveArgs, rlpEncodedL1Header, rlpEncodedL2Header, settledStateProof, l2StorageProof, rlpEncodedContractAccount, l2AccountProof)
+	}
+	return nil, nil
+}
+
+func (m *MockNativeProver) EncodeProveL1Calldata(
+	proveArgs t.ProveL1ScalarArgs,
+	rlpEncodedL1Header []byte,
+	l1StorageProof [][]byte,
+	rlpEncodedContractAccount []byte,
+	l1AccountProof [][]byte,
+) ([]byte, error) {
+	if m.EncodeProveL1CalldataFunc != nil {
+		return m.EncodeProveL1CalldataFunc(
+			proveArgs,
+			rlpEncodedL1Header,
+			l1StorageProof,
+			rlpEncodedContractAccount,
+			l1AccountProof,
+		)
 	}
 	return nil, nil
 }

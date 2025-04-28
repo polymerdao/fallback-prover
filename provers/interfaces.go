@@ -23,7 +23,7 @@ type IRPCClient interface {
 }
 
 type IL1OriginProver interface {
-	ProveL1Origin(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Block, error)
+	ProveL1Origin(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error)
 }
 
 type IStorageProver interface {
@@ -73,6 +73,14 @@ type INativeProver interface {
 		l2StorageProof [][]byte,
 		rlpEncodedContractAccount []byte,
 		l2AccountProof [][]byte,
+	) ([]byte, error)
+
+	EncodeProveL1Calldata(
+		proveArgs t.ProveL1ScalarArgs,
+		rlpEncodedL1Header []byte,
+		l1StorageProof [][]byte,
+		rlpEncodedContractAccount []byte,
+		l1AccountProof [][]byte,
 	) ([]byte, error)
 
 	// For testing purposes

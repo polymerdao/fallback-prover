@@ -23,7 +23,7 @@ type Prover struct {
 }
 
 // NewProver initializes a new prover with the given RPC endpoints
-func NewProver(l1RPCEndpoint, srcL2RPCEndpoint, dstL2RPCEndpoint string, srcL2ChainID uint64, registryAddr string) (*Prover, error) {
+func NewProver(l1RPCEndpoint, srcL2RPCEndpoint, dstL2RPCEndpoint string, srcL2ChainID uint64, registryAddr common.Address) (*Prover, error) {
 	// Set up L1 clients
 	l1RPC, err := rpc.Dial(l1RPCEndpoint)
 	if err != nil {
@@ -45,7 +45,7 @@ func NewProver(l1RPCEndpoint, srcL2RPCEndpoint, dstL2RPCEndpoint string, srcL2Ch
 	}
 	dstL2Client := ethclient.NewClient(dstL2RPC)
 
-	registryProver := provers.NewRegistryProver(l1Client, l1RPC, common.HexToAddress(registryAddr))
+	registryProver := provers.NewRegistryProver(l1Client, l1RPC, registryAddr)
 	nativeProver, err := provers.NewNativeProver()
 	if err != nil {
 		return nil, err
@@ -80,13 +80,13 @@ func NewProver(l1RPCEndpoint, srcL2RPCEndpoint, dstL2RPCEndpoint string, srcL2Ch
 	}, nil
 }
 
-// GenerateProofCalldata generates the calldata for the NativeProver.prove() function
-func (p *Prover) GenerateProofCalldata(
+// GenerateProveCalldata generates the calldata for the NativeProver.prove() function
+func (p *Prover) GenerateProveCalldata(
 	ctx context.Context,
 	srcL2ChainID uint64,
 	dstL2ChainID uint64,
-	srcAddress string,
-	srcStorageSlot string,
+	srcAddress common.Address,
+	srcStorageSlot common.Hash,
 ) (string, error) {
 	l1BlockHashOracle, err := p.registryProver.GetL1BlockHashOracle(ctx, dstL2ChainID)
 	if err != nil {
@@ -98,10 +98,9 @@ func (p *Prover) GenerateProofCalldata(
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
 
-	contractAddr := common.HexToAddress(srcAddress)
-	slotHash := common.HexToHash(srcStorageSlot)
-
-	result, err := p.l2StorageProver.GetStorageAt(ctx, contractAddr, slotHash, nil)
+	// TODO we cant query the storage value prior to knowing what the L2 block that settled is. The latest
+	// block will be 7 days newer... get it after we get the settled l2 output below
+	result, err := p.l2StorageProver.GetStorageAt(ctx, srcAddress, srcStorageSlot, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get storage value: %w", err)
 	}
@@ -112,6 +111,7 @@ func (p *Prover) GenerateProofCalldata(
 	var l2WorldStateRoot common.Hash
 	var rlpEncodedL2Header []byte
 
+	// TODO we should pass in the L1 header we got above so that we are using the right state
 	settledStateProof, l2WorldStateRoot, rlpEncodedL2Header, err = p.settledStateProver.GenerateSettledStateProof(
 		ctx,
 		p.l2Config)
@@ -121,8 +121,8 @@ func (p *Prover) GenerateProofCalldata(
 
 	l2StorageProof, rlpEncodedContractAccount, l2AccountProof, err := p.l2StorageProver.GenerateStorageProof(
 		ctx,
-		contractAddr,
-		slotHash,
+		srcAddress,
+		srcStorageSlot,
 		l2WorldStateRoot,
 	)
 	if err != nil {
@@ -131,8 +131,8 @@ func (p *Prover) GenerateProofCalldata(
 
 	calldata, err := p.nativeProver.EncodeProveCalldata(
 		big.NewInt(int64(srcL2ChainID)),
-		contractAddr,
-		slotHash,
+		srcAddress,
+		srcStorageSlot,
 		storageValue,
 		rlpEncodedL1Header,
 		rlpEncodedL2Header,
@@ -155,8 +155,8 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 	ctx context.Context,
 	srcL2ChainID uint64,
 	dstL2ChainID uint64,
-	srcAddress string,
-	srcStorageSlot string,
+	srcAddress common.Address,
+	srcStorageSlot common.Hash,
 ) (string, error) {
 	l1BlockHashOracle, err := p.registryProver.GetL1BlockHashOracle(ctx, dstL2ChainID)
 	if err != nil {
@@ -174,10 +174,7 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 		return "", fmt.Errorf("failed to generate update L2 config args: %w", err)
 	}
 
-	contractAddr := common.HexToAddress(srcAddress)
-	slotHash := common.HexToHash(srcStorageSlot)
-
-	result, err := p.l2StorageProver.GetStorageAt(ctx, contractAddr, slotHash, nil)
+	result, err := p.l2StorageProver.GetStorageAt(ctx, srcAddress, srcStorageSlot, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get storage value: %w", err)
 	}
@@ -197,8 +194,8 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 
 	l2StorageProof, rlpEncodedContractAccount, l2AccountProof, err := p.l2StorageProver.GenerateStorageProof(
 		ctx,
-		contractAddr,
-		slotHash,
+		srcAddress,
+		srcStorageSlot,
 		l2WorldStateRoot,
 	)
 	if err != nil {
@@ -208,8 +205,8 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 	// Create ProveScalarArgs for the updateAndProve call
 	proveArgs := types.ProveScalarArgs{
 		ChainID:          big.NewInt(int64(srcL2ChainID)),
-		ContractAddr:     contractAddr,
-		StorageSlot:      slotHash,
+		ContractAddr:     srcAddress,
+		StorageSlot:      srcStorageSlot,
 		StorageValue:     storageValue,
 		L2WorldStateRoot: l2WorldStateRoot,
 	}
@@ -237,8 +234,8 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 	ctx context.Context,
 	srcL2ChainID uint64,
 	dstL2ChainID uint64,
-	srcAddress string,
-	srcStorageSlot string,
+	srcAddress common.Address,
+	srcStorageSlot common.Hash,
 ) (string, error) {
 	l1BlockHashOracle, err := p.registryProver.GetL1BlockHashOracle(ctx, dstL2ChainID)
 	if err != nil {
@@ -256,10 +253,7 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 		return "", fmt.Errorf("failed to generate update L2 config args: %w", err)
 	}
 
-	contractAddr := common.HexToAddress(srcAddress)
-	slotHash := common.HexToHash(srcStorageSlot)
-
-	result, err := p.l2StorageProver.GetStorageAt(ctx, contractAddr, slotHash, nil)
+	result, err := p.l2StorageProver.GetStorageAt(ctx, srcAddress, srcStorageSlot, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get storage value: %w", err)
 	}
@@ -279,8 +273,8 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 
 	l2StorageProof, rlpEncodedContractAccount, l2AccountProof, err := p.l2StorageProver.GenerateStorageProof(
 		ctx,
-		contractAddr,
-		slotHash,
+		srcAddress,
+		srcStorageSlot,
 		l2WorldStateRoot,
 	)
 	if err != nil {
@@ -290,8 +284,8 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 	// Create ProveScalarArgs for the configureAndProve call
 	proveArgs := types.ProveScalarArgs{
 		ChainID:          big.NewInt(int64(srcL2ChainID)),
-		ContractAddr:     contractAddr,
-		StorageSlot:      slotHash,
+		ContractAddr:     srcAddress,
+		StorageSlot:      srcStorageSlot,
 		StorageValue:     storageValue,
 		L2WorldStateRoot: l2WorldStateRoot,
 	}

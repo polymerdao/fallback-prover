@@ -16,12 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestProver_GenerateProofCalldata(t *testing.T) {
+func TestProver_GenerateProveCalldata(t *testing.T) {
 	// Create test data
 	srcL2ChainID := uint64(10)    // Optimism chain ID
 	dstL2ChainID := uint64(42161) // Arbitrum chain ID
-	srcAddress := "0x1234567890abcdef1234567890abcdef12345678"
-	srcStorageSlot := "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+	srcAddress := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+	srcStorageSlot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
 
 	// Create a test header and block
 	l1Header := testutil.CreateTestHeader(t)
@@ -60,8 +60,8 @@ func TestProver_GenerateProofCalldata(t *testing.T) {
 	}
 
 	mockL1OriginProver := &testutil.MockL1OriginProver{
-		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Block, error) {
-			return rlpEncodedL1Header, l1Block, nil
+		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
+			return rlpEncodedL1Header, l1Block.Header(), nil
 		},
 	}
 
@@ -94,7 +94,7 @@ func TestProver_GenerateProofCalldata(t *testing.T) {
 	}
 
 	// Call the method being tested
-	calldata, err := prover.GenerateProofCalldata(
+	calldata, err := prover.GenerateProveCalldata(
 		context.Background(),
 		srcL2ChainID,
 		dstL2ChainID,
@@ -142,12 +142,12 @@ func TestProver_GenerateProofCalldata(t *testing.T) {
 
 	// Verify the values directly against our expectations
 	assert.Equal(t, big.NewInt(int64(srcL2ChainID)).String(), structType.ChainID.String(), "ChainID should match")
-	assert.Equal(t, common.HexToAddress(srcAddress).Hex(), structType.ContractAddr.Hex(), "ContractAddr should match")
+	assert.Equal(t, srcAddress.Hex(), structType.ContractAddr.Hex(), "ContractAddr should match")
 
 	// Convert [32]uint8 to common.Hash for comparison
 	var storageSlotBytes common.Hash
 	copy(storageSlotBytes[:], structType.StorageSlot[:])
-	assert.Equal(t, common.HexToHash(srcStorageSlot).Hex(), storageSlotBytes.Hex(), "StorageSlot should match")
+	assert.Equal(t, srcStorageSlot.Hex(), storageSlotBytes.Hex(), "StorageSlot should match")
 
 	// Check for the presence of other key data
 	assert.NotNil(t, unpackedMap["_rlpEncodedL1Header"], "L1 header should be present")
@@ -169,8 +169,8 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 	// Create test data
 	srcL2ChainID := uint64(10)    // Optimism chain ID
 	dstL2ChainID := uint64(42161) // Arbitrum chain ID
-	srcAddress := "0x1234567890abcdef1234567890abcdef12345678"
-	srcStorageSlot := "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+	srcAddress := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+	srcStorageSlot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
 
 	// Create a test header and block
 	l1Header := testutil.CreateTestHeader(t)
@@ -233,8 +233,8 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 	}
 
 	mockL1OriginProver := &testutil.MockL1OriginProver{
-		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Block, error) {
-			return rlpEncodedL1Header, l1Block, nil
+		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
+			return rlpEncodedL1Header, l1Block.Header(), nil
 		},
 	}
 
@@ -346,12 +346,12 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 
 	// Verify the core values
 	assert.Equal(t, big.NewInt(int64(srcL2ChainID)).String(), proveArgsStruct.ChainID.String(), "ChainID should match")
-	assert.Equal(t, common.HexToAddress(srcAddress).Hex(), proveArgsStruct.ContractAddr.Hex(), "ContractAddr should match")
+	assert.Equal(t, srcAddress.Hex(), proveArgsStruct.ContractAddr.Hex(), "ContractAddr should match")
 
 	// Convert [32]uint8 to common.Hash for comparison
 	var storageSlotBytes common.Hash
 	copy(storageSlotBytes[:], proveArgsStruct.StorageSlot[:])
-	assert.Equal(t, common.HexToHash(srcStorageSlot).Hex(), storageSlotBytes.Hex(), "StorageSlot should match")
+	assert.Equal(t, srcStorageSlot.Hex(), storageSlotBytes.Hex(), "StorageSlot should match")
 
 	// Check for the presence of other key data
 	assert.NotNil(t, unpackedMap["_rlpEncodedL1Header"], "L1 header should be present")
@@ -373,8 +373,8 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 	// Create test data
 	srcL2ChainID := uint64(10)    // Optimism chain ID
 	dstL2ChainID := uint64(42161) // Arbitrum chain ID
-	srcAddress := "0x1234567890abcdef1234567890abcdef12345678"
-	srcStorageSlot := "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+	srcAddress := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+	srcStorageSlot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
 
 	// Create a test header and block
 	l1Header := testutil.CreateTestHeader(t)
@@ -437,8 +437,8 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 	}
 
 	mockL1OriginProver := &testutil.MockL1OriginProver{
-		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Block, error) {
-			return rlpEncodedL1Header, l1Block, nil
+		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
+			return rlpEncodedL1Header, l1Block.Header(), nil
 		},
 	}
 
@@ -550,12 +550,12 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 
 	// Verify the core values
 	assert.Equal(t, big.NewInt(int64(srcL2ChainID)).String(), proveArgsStruct.ChainID.String(), "ChainID should match")
-	assert.Equal(t, common.HexToAddress(srcAddress).Hex(), proveArgsStruct.ContractAddr.Hex(), "ContractAddr should match")
+	assert.Equal(t, srcAddress.Hex(), proveArgsStruct.ContractAddr.Hex(), "ContractAddr should match")
 
 	// Convert [32]uint8 to common.Hash for comparison
 	var storageSlotBytes common.Hash
 	copy(storageSlotBytes[:], proveArgsStruct.StorageSlot[:])
-	assert.Equal(t, common.HexToHash(srcStorageSlot).Hex(), storageSlotBytes.Hex(), "StorageSlot should match")
+	assert.Equal(t, srcStorageSlot.Hex(), storageSlotBytes.Hex(), "StorageSlot should match")
 
 	// Check for the presence of other key data
 	assert.NotNil(t, unpackedMap["_rlpEncodedL1Header"], "L1 header should be present")

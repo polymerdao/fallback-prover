@@ -219,11 +219,13 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	faultDisputeGameStatusSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[2])))
 
 	// Step 1: Get the latest L2 block
+	// TODO: We need to get the latest output and then get the L2 header corresponding to it
 	l2Block, err := p.l2Client.BlockByNumber(ctx, nil) // nil means latest block
 	if err != nil {
 		return nil, common.Hash{}, nil, fmt.Errorf("failed to get latest L2 block: %w", err)
 	}
 
+	// TODO: fix this. We cant just blindly use the latest block number, we need to get the block corresponding to the L2 output we find resolved
 	l2BlockNumber := l2Block.Number()
 	l2Header := l2Block.Header()
 	l2StateRoot := l2Header.Root
@@ -297,6 +299,12 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	var gameIndex *big.Int
 	var gameAddress common.Address
 
+	// Check game status
+	faultDisputeGameABI, err := getFaultDisputeGameABI()
+	if err != nil {
+		return nil, common.Hash{}, nil, fmt.Errorf("failed to parse FaultDisputeGame ABI: %w", err)
+	}
+
 	// Start from the most recent game and work backwards
 	for i := new(big.Int).Sub(gameCount, big.NewInt(1)); i.Sign() >= 0; i.Sub(i, big.NewInt(1)) {
 		// Get the game address
@@ -321,12 +329,6 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 			continue
 		}
 		log.Debug("Game address from factory", "index", i, "address", currentGameAddress.Hex())
-
-		// Check game status
-		faultDisputeGameABI, err := getFaultDisputeGameABI()
-		if err != nil {
-			return nil, common.Hash{}, nil, fmt.Errorf("failed to parse FaultDisputeGame ABI: %w", err)
-		}
 
 		statusData, err := faultDisputeGameABI.Pack("status")
 		if err != nil {
@@ -407,12 +409,6 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	disputeGameFactoryAccountProof := make([][]byte, len(disputeGameFactoryProof.AccountProof))
 	for i, p := range disputeGameFactoryProof.AccountProof {
 		disputeGameFactoryAccountProof[i] = common.FromHex(p)
-	}
-
-	// Step 6: Get information from the FaultDisputeGame contract
-	faultDisputeGameABI, err := getFaultDisputeGameABI()
-	if err != nil {
-		return nil, common.Hash{}, nil, fmt.Errorf("failed to parse FaultDisputeGame ABI: %w", err)
 	}
 
 	// Get the root claim
@@ -609,10 +605,10 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 
 	// DisputeGameFactoryProofData:
 	disputeGameFactoryProofData := []interface{}{
-		messagePasserRoot,
-		latestBlockHash,
+		messagePasserRoot, // TODO: needs to match the L2 output
+		latestBlockHash,   // TODO: needs to match the L2 output
 		gameIndex.Uint64(),
-		crypto.Keccak256Hash(gameAddress.Bytes()), // Game ID derivation (simplified)
+		crypto.Keccak256Hash(gameAddress.Bytes()), // TODO: this needs to be the full ID not just the address
 		disputeFaultGameStorageProof,
 		rlpEncodedDisputeGameFactoryData,
 		disputeGameFactoryAccountProof,

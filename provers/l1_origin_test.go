@@ -50,11 +50,11 @@ func TestL1OriginProver_ProveL1Origin(t *testing.T) {
 	prover := NewL1OriginProver(mockL1Client, mockL2Client)
 
 	// Call the method being tested
-	encodedHeader, resultBlock, err := prover.ProveL1Origin(context.Background(), l1OracleAddress)
+	encodedHeader, resultHeader, err := prover.ProveL1Origin(context.Background(), l1OracleAddress)
 	require.NoError(t, err)
 
 	// Verify the results
 	assert.Equal(t, expectedEncodedHeader, encodedHeader)
-	assert.Equal(t, block.Hash().Hex(), resultBlock.Hash().Hex())
-	assert.Equal(t, block.Number().Uint64(), resultBlock.Number().Uint64())
+	assert.Equal(t, block.Hash().Hex(), resultHeader.Hash().Hex())
+	assert.Equal(t, block.Number().Uint64(), resultHeader.Number.Uint64())
 }
