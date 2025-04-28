@@ -13,60 +13,58 @@ import (
 
 // L1Prover is the main entry point for generating L1 proofs
 type L1Prover struct {
-	registryProver  provers.IRegistryProver
-	l1OriginProver  provers.IL1OriginProver
-	nativeProver    provers.INativeProver
-	l1StorageProver provers.IStorageProver
+	l1OriginProver    provers.IL1OriginProver
+	nativeProver      provers.INativeProver
+	l1StorageProver   provers.IStorageProver
+	l1BlockHashOracle common.Address
 }
 
 // NewL1Prover initializes a new prover with the given RPC endpoints
-func NewL1Prover(l1RPCEndpoint, dstL2RPCEndpoint string, registryAddr common.Address) (*L1Prover, error) {
+func NewL1Prover(ctx context.Context, conf *ProveL1Config) (*L1Prover, error) {
 	// Set up L1 clients
-	l1RPC, err := rpc.Dial(l1RPCEndpoint)
+	l1RPC, err := rpc.Dial(conf.L1HTTPPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to L1 RPC: %w", err)
 	}
 	l1Client := ethclient.NewClient(l1RPC)
 
 	// Set up destination L2 clients
-	dstL2RPC, err := rpc.Dial(dstL2RPCEndpoint)
+	dstL2RPC, err := rpc.Dial(conf.DstL2RPC)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to destination L2 RPC: %w", err)
 	}
 	dstL2Client := ethclient.NewClient(dstL2RPC)
 
-	registryProver := provers.NewRegistryProver(l1Client, l1RPC, registryAddr)
+	registryProver := provers.NewRegistryProver(l1Client, l1RPC, conf.RegistryAddress)
 	nativeProver, err := provers.NewNativeProver()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create native prover: %w", err)
 	}
 
+	l1BlockHashOracle, err := registryProver.GetL1BlockHashOracle(ctx, conf.DstL2ChainID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L1 block hash oracle: %w", err)
+	}
+
 	return &L1Prover{
-		registryProver:  registryProver,
-		l1OriginProver:  provers.NewL1OriginProver(l1Client, dstL2Client),
-		l1StorageProver: provers.NewStorageProver(l1Client, l1RPC),
-		nativeProver:    nativeProver,
+		l1OriginProver:    provers.NewL1OriginProver(l1Client, dstL2Client),
+		l1StorageProver:   provers.NewStorageProver(l1Client, l1RPC),
+		nativeProver:      nativeProver,
+		l1BlockHashOracle: l1BlockHashOracle,
 	}, nil
 }
 
 // GenerateProveL1Calldata generates the calldata for the NativeProver.proveL1() function
 func (p *L1Prover) GenerateProveL1Calldata(
 	ctx context.Context,
-	dstL2ChainID uint64,
-	l1Address common.Address,
-	l1StorageSlot common.Hash,
+	params *ProveParams,
 ) (string, error) {
-	l1BlockHashOracle, err := p.registryProver.GetL1BlockHashOracle(ctx, dstL2ChainID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get L1 block hash oracle: %w", err)
-	}
-
-	rlpEncodedL1Header, l1Header, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
+	rlpEncodedL1Header, l1Header, err := p.l1OriginProver.ProveL1Origin(ctx, p.l1BlockHashOracle)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
 
-	result, err := p.l1StorageProver.GetStorageAt(ctx, l1Address, l1StorageSlot, nil)
+	result, err := p.l1StorageProver.GetStorageAt(ctx, params.Address, params.StorageSlot, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get storage value: %w", err)
 	}
@@ -74,8 +72,8 @@ func (p *L1Prover) GenerateProveL1Calldata(
 	storageValue := common.HexToHash(result)
 	l1StorageProof, rlpEncodedContractAccount, l1AccountProof, err := p.l1StorageProver.GenerateStorageProof(
 		ctx,
-		l1Address,
-		l1StorageSlot,
+		params.Address,
+		params.StorageSlot,
 		l1Header.Root,
 	)
 	if err != nil {
@@ -83,8 +81,8 @@ func (p *L1Prover) GenerateProveL1Calldata(
 	}
 
 	proveArgs := types.ProveL1ScalarArgs{
-		ContractAddr:     l1Address,
-		StorageSlot:      l1StorageSlot,
+		ContractAddr:     params.Address,
+		StorageSlot:      params.StorageSlot,
 		StorageValue:     storageValue,
 		L1WorldStateRoot: l1Header.Root,
 	}

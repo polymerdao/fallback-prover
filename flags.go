@@ -45,14 +45,14 @@ var (
 		Usage:   "Chain ID for the L2 we are proving state of",
 		EnvVars: prefixEnvVars("SRC_L2_CHAIN_ID"),
 	}
-	SrcL2ContractAddress = &cli.StringFlag{
-		Name:    "src-l2-contract-address",
-		Usage:   "Contract address we are proving state of, on the source L2",
+	SrcContractAddress = &cli.StringFlag{
+		Name:    "src-contract-address",
+		Usage:   "Contract address we are proving state of, on the source L2 or L1",
 		EnvVars: prefixEnvVars("SRC_L2_CONTRACT_ADDRESS"),
 	}
-	SrcL2StorageSlot = &cli.StringFlag{
-		Name:    "src-l2-storage-slot",
-		Usage:   "Storage slot we are proving state of, on the source L2",
+	SrcStorageSlot = &cli.StringFlag{
+		Name:    "src-storage-slot",
+		Usage:   "Storage slot we are proving state of, on the source L2 or L1",
 		EnvVars: prefixEnvVars("SRC_L2_STORAGE_SLOT"),
 	}
 	L1RegistryAddress = &cli.StringFlag{
@@ -61,31 +61,60 @@ var (
 		EnvVars: prefixEnvVars("SRC_L2_STORAGE_SLOT"),
 		Value:   DefaultRegistryAddress,
 	}
+	WaitForNewEpoch = &cli.BoolFlag{
+		Name: "wait-for-new-epoch",
+		Usage: "Wait for a new L2 epoch before constructing proof if true." +
+			"Useful to avoid race condition with L1 blockhash oracle changing",
+		EnvVars: prefixEnvVars("WAIT_FOR_NEW_EPOCH"),
+		Value:   true,
+	}
 )
 
-var requiredFlags = []cli.Flag{
+var requiredProveFlags = []cli.Flag{
 	L1HTTPPath,
 	SrcL2ChainID,
 	SrcL2HTTPPath,
 	DstL2ChainID,
 	DstL2HTTPPath,
-	SrcL2ContractAddress,
-	SrcL2StorageSlot,
+	SrcContractAddress,
+	SrcStorageSlot,
+}
+
+var requiredProveL1Flags = []cli.Flag{
+	L1HTTPPath,
+	DstL2ChainID,
+	DstL2HTTPPath,
+	SrcContractAddress,
+	SrcStorageSlot,
 }
 
 var optionalFlags = []cli.Flag{
 	L1RegistryAddress,
+	WaitForNewEpoch,
 }
 
-// Flags contains the list of configuration options available to the binary.
-var Flags []cli.Flag
+// L2Flags contains the list of configuration options available for the prove commands
+var L2Flags []cli.Flag
+
+// L1Flags contains the list of configuration options available for the proveL1 commands
+var L1Flags []cli.Flag
 
 func init() {
-	Flags = append(requiredFlags, optionalFlags...)
+	L2Flags = append(requiredProveFlags, optionalFlags...)
+	L1Flags = append(requiredProveL1Flags, optionalFlags...)
 }
 
-func CheckRequired(ctx *cli.Context) error {
-	for _, f := range requiredFlags {
+func CheckRequiredL2(ctx *cli.Context) error {
+	for _, f := range requiredProveFlags {
+		if !ctx.IsSet(f.Names()[0]) {
+			return fmt.Errorf("flag %s is required", f.Names()[0])
+		}
+	}
+	return opflags.CheckRequiredXor(ctx)
+}
+
+func CheckRequiredL1(ctx *cli.Context) error {
+	for _, f := range requiredProveL1Flags {
 		if !ctx.IsSet(f.Names()[0]) {
 			return fmt.Errorf("flag %s is required", f.Names()[0])
 		}

@@ -18,8 +18,7 @@ import (
 
 func TestProver_GenerateProveCalldata(t *testing.T) {
 	// Create test data
-	srcL2ChainID := uint64(10)    // Optimism chain ID
-	dstL2ChainID := uint64(42161) // Arbitrum chain ID
+	srcL2ChainID := uint64(10) // Optimism chain ID
 	srcAddress := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	srcStorageSlot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
 
@@ -48,15 +47,6 @@ func TestProver_GenerateProveCalldata(t *testing.T) {
 	}
 
 	// Create mock provers
-	mockRegistryProver := &testutil.MockRegistryProver{
-		GetL2ConfigurationFunc: func(ctx context.Context, chainID uint64) (*types2.L2ConfigInfo, error) {
-			return testConfig, nil
-		},
-		GetL1BlockHashOracleFunc: func(ctx context.Context, chainID uint64) (common.Address, error) {
-			return common.HexToAddress("0x5678"), nil
-		},
-	}
-
 	mockL1OriginProver := &testutil.MockL1OriginProver{
 		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
 			return rlpEncodedL1Header, l1Block.Header(), nil
@@ -83,21 +73,22 @@ func TestProver_GenerateProveCalldata(t *testing.T) {
 
 	// Create the Prover instance with mocked interfaces
 	prover := &Prover{
-		registryProver:     mockRegistryProver,
 		l1OriginProver:     mockL1OriginProver,
 		nativeProver:       nativeProver,
 		l2StorageProver:    mockStorageProver,
 		settledStateProver: mockBedrockProver,
 		l2Config:           testConfig,
+		l1BlockHashOracle:  common.HexToAddress("0x5678"),
+		srcChainID:         big.NewInt(int64(srcL2ChainID)), // Initialize the srcChainID field
 	}
 
 	// Call the method being tested
 	calldata, err := prover.GenerateProveCalldata(
 		context.Background(),
-		srcL2ChainID,
-		dstL2ChainID,
-		srcAddress,
-		srcStorageSlot,
+		&ProveParams{
+			Address:     srcAddress,
+			StorageSlot: srcStorageSlot,
+		},
 	)
 	require.NoError(t, err)
 
@@ -165,8 +156,7 @@ func TestProver_GenerateProveCalldata(t *testing.T) {
 
 func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 	// Create test data
-	srcL2ChainID := uint64(10)    // Optimism chain ID
-	dstL2ChainID := uint64(42161) // Arbitrum chain ID
+	srcL2ChainID := uint64(10) // Optimism chain ID
 	srcAddress := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	srcStorageSlot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
 
@@ -208,26 +198,8 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 		FinalityDelaySeconds: big.NewInt(300),
 		L2Type:               types2.OPStackBedrock,
 	}
-	updateArgs := &types2.UpdateL2ConfigArgs{
-		Config:                        l2Config,
-		L1StorageProof:                mockL1StorageProof,
-		RlpEncodedRegistryAccountData: mockEncodedRegistryAccount,
-		L1RegistryProof:               mockL1RegistryProof,
-	}
 
 	// Create mock provers
-	mockRegistryProver := &testutil.MockRegistryProver{
-		GetL2ConfigurationFunc: func(ctx context.Context, chainID uint64) (*types2.L2ConfigInfo, error) {
-			return testConfig, nil
-		},
-		GetL1BlockHashOracleFunc: func(ctx context.Context, chainID uint64) (common.Address, error) {
-			return common.HexToAddress("0x5678"), nil
-		},
-		GenerateUpdateL2ConfigArgsFunc: func(ctx context.Context, chainID uint64) (*types2.UpdateL2ConfigArgs, error) {
-			return updateArgs, nil
-		},
-	}
-
 	mockL1OriginProver := &testutil.MockL1OriginProver{
 		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
 			return rlpEncodedL1Header, l1Block.Header(), nil
@@ -254,21 +226,28 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 
 	// Create the Prover instance with mocked interfaces
 	prover := &Prover{
-		registryProver:     mockRegistryProver,
 		l1OriginProver:     mockL1OriginProver,
 		nativeProver:       nativeProver,
 		l2StorageProver:    mockStorageProver,
 		settledStateProver: mockBedrockProver,
 		l2Config:           testConfig,
+		l1BlockHashOracle:  common.HexToAddress("0x5678"),
+		srcChainID:         big.NewInt(int64(srcL2ChainID)), // Initialize the srcChainID field
+		configProof: &types2.UpdateL2ConfigArgs{
+			Config:                        l2Config,
+			L1StorageProof:                mockL1StorageProof,
+			RlpEncodedRegistryAccountData: mockEncodedRegistryAccount,
+			L1RegistryProof:               mockL1RegistryProof,
+		},
 	}
 
 	// Call the method being tested
 	calldata, err := prover.GenerateUpdateAndProveCalldata(
 		context.Background(),
-		srcL2ChainID,
-		dstL2ChainID,
-		srcAddress,
-		srcStorageSlot,
+		&ProveParams{
+			Address:     srcAddress,
+			StorageSlot: srcStorageSlot,
+		},
 	)
 	require.NoError(t, err)
 
@@ -367,8 +346,7 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 
 func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 	// Create test data
-	srcL2ChainID := uint64(10)    // Optimism chain ID
-	dstL2ChainID := uint64(42161) // Arbitrum chain ID
+	srcL2ChainID := uint64(10) // Optimism chain ID
 	srcAddress := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	srcStorageSlot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
 
@@ -410,26 +388,8 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 		FinalityDelaySeconds: big.NewInt(300),
 		L2Type:               types2.OPStackCannon,
 	}
-	updateArgs := &types2.UpdateL2ConfigArgs{
-		Config:                        l2Config,
-		L1StorageProof:                mockL1StorageProof,
-		RlpEncodedRegistryAccountData: mockEncodedRegistryAccount,
-		L1RegistryProof:               mockL1RegistryProof,
-	}
 
 	// Create mock provers
-	mockRegistryProver := &testutil.MockRegistryProver{
-		GetL2ConfigurationFunc: func(ctx context.Context, chainID uint64) (*types2.L2ConfigInfo, error) {
-			return testConfig, nil
-		},
-		GetL1BlockHashOracleFunc: func(ctx context.Context, chainID uint64) (common.Address, error) {
-			return common.HexToAddress("0x5678"), nil
-		},
-		GenerateUpdateL2ConfigArgsFunc: func(ctx context.Context, chainID uint64) (*types2.UpdateL2ConfigArgs, error) {
-			return updateArgs, nil
-		},
-	}
-
 	mockL1OriginProver := &testutil.MockL1OriginProver{
 		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
 			return rlpEncodedL1Header, l1Block.Header(), nil
@@ -456,21 +416,28 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 
 	// Create the Prover instance with mocked interfaces
 	prover := &Prover{
-		registryProver:     mockRegistryProver,
 		l1OriginProver:     mockL1OriginProver,
 		nativeProver:       nativeProver,
 		l2StorageProver:    mockStorageProver,
 		settledStateProver: mockCannonProver,
 		l2Config:           testConfig,
+		l1BlockHashOracle:  common.HexToAddress("0x5678"),
+		srcChainID:         big.NewInt(int64(srcL2ChainID)), // Initialize the srcChainID field
+		configProof: &types2.UpdateL2ConfigArgs{
+			Config:                        l2Config,
+			L1StorageProof:                mockL1StorageProof,
+			RlpEncodedRegistryAccountData: mockEncodedRegistryAccount,
+			L1RegistryProof:               mockL1RegistryProof,
+		},
 	}
 
 	// Call the method being tested
 	calldata, err := prover.GenerateConfigureAndProveCalldata(
 		context.Background(),
-		srcL2ChainID,
-		dstL2ChainID,
-		srcAddress,
-		srcStorageSlot,
+		&ProveParams{
+			Address:     srcAddress,
+			StorageSlot: srcStorageSlot,
+		},
 	)
 	require.NoError(t, err)
 
