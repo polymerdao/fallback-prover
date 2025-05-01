@@ -1,14 +1,16 @@
 package fallback_prover
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/rlp"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	types2 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/fallback_prover/provers"
 	"github.com/polymerdao/fallback_prover/types"
@@ -100,7 +102,7 @@ func (p *Prover) GenerateProveCalldata(
 	ctx context.Context,
 	params *ProveParams,
 ) (string, error) {
-	rlpEncodedL1Header, l1Header, err := p.l1OriginProver.ProveL1Origin(ctx, p.l1BlockHashOracle)
+	rlpEncodedL1Header, l1Header, err := p.GetL1Origin(ctx, params)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
@@ -165,7 +167,7 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 	ctx context.Context,
 	params *ProveParams,
 ) (string, error) {
-	rlpEncodedL1Header, l1Header, err := p.l1OriginProver.ProveL1Origin(ctx, p.l1BlockHashOracle)
+	rlpEncodedL1Header, l1Header, err := p.GetL1Origin(ctx, params)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
@@ -231,7 +233,7 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 	ctx context.Context,
 	params *ProveParams,
 ) (string, error) {
-	rlpEncodedL1Header, l1Header, err := p.l1OriginProver.ProveL1Origin(ctx, p.l1BlockHashOracle)
+	rlpEncodedL1Header, l1Header, err := p.GetL1Origin(ctx, params)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
@@ -290,4 +292,40 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 
 	// Return the calldata as a hex string
 	return "0x" + common.Bytes2Hex(calldata), nil
+}
+
+func (p *Prover) GetL1Origin(ctx context.Context, params *ProveParams) ([]byte, *types2.Header, error) {
+	if params.WaitForNewEpoch {
+		// Block until we see the L1 origin change
+		l1OriginHash, err := p.l1OriginProver.GetL1OriginHash(ctx, p.l1BlockHashOracle)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get initial L1 origin hash: %w", err)
+		}
+		i := uint(0)
+
+		t := time.NewTicker(time.Duration(params.EpochPollingFreq) * time.Second)
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, nil, fmt.Errorf("context cancelled: %w", ctx.Err())
+			case <-t.C:
+				i++
+				newL1OriginHash, err := p.l1OriginProver.GetL1OriginHash(ctx, p.l1BlockHashOracle)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to get L1 origin: %w", err)
+				}
+				if !bytes.Equal(l1OriginHash.Bytes(), newL1OriginHash.Bytes()) {
+					return p.l1OriginProver.GetL1Origin(ctx, newL1OriginHash)
+				}
+				if i > params.EpochPollingTries {
+					return nil, nil, fmt.Errorf("timed out waiting for new epoch")
+				}
+			}
+		}
+	}
+	l1OriginHash, err := p.l1OriginProver.GetL1OriginHash(ctx, p.l1BlockHashOracle)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get L1 origin hash: %w", err)
+	}
+	return p.l1OriginProver.GetL1Origin(ctx, l1OriginHash)
 }

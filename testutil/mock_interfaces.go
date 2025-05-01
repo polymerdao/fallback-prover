@@ -56,12 +56,20 @@ func (m *MockRegistryProver) GenerateUpdateL2ConfigArgs(ctx context.Context, cha
 
 // MockL1OriginProver is a mock implementation of the provers.IL1OriginProver interface
 type MockL1OriginProver struct {
-	ProveL1OriginFunc func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error)
+	GetL1OriginHashFunc func(ctx context.Context, l1OracleAddress common.Address) (common.Hash, error)
+	GetL1OriginFunc     func(ctx context.Context, l1OriginHash common.Hash) ([]byte, *types.Header, error)
 }
 
-func (m *MockL1OriginProver) ProveL1Origin(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
-	if m.ProveL1OriginFunc != nil {
-		return m.ProveL1OriginFunc(ctx, l1OracleAddress)
+func (m *MockL1OriginProver) GetL1OriginHash(ctx context.Context, l1OracleAddress common.Address) (common.Hash, error) {
+	if m.GetL1OriginHashFunc != nil {
+		return m.GetL1OriginHashFunc(ctx, l1OracleAddress)
+	}
+	return common.Hash{}, nil
+}
+
+func (m *MockL1OriginProver) GetL1Origin(ctx context.Context, l1Hash common.Hash) ([]byte, *types.Header, error) {
+	if m.GetL1OriginFunc != nil {
+		return m.GetL1OriginFunc(ctx, l1Hash)
 	}
 	return nil, nil, nil
 }

@@ -17,12 +17,11 @@ import (
 func TestL1OriginProver_ProveL1Origin(t *testing.T) {
 	// Create test data
 	l1OracleAddress := common.HexToAddress("0xabcdef1234567890abcdef1234567890abcdef12")
-	l1HeaderHash := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 
 	// Create a test header and block
 	header := testutil.CreateTestHeader(t)
 	block := testutil.CreateTestBlock(t, header)
-
+	expectedHash := header.Hash()
 	// Expected RLP encoded header
 	expectedEncodedHeader, err := rlp.EncodeToBytes(header)
 	require.NoError(t, err)
@@ -34,14 +33,14 @@ func TestL1OriginProver_ProveL1Origin(t *testing.T) {
 			testutil.RequireAddressEq(t, l1OracleAddress, *msg.To)
 
 			// Return the hash - the function only uses 32 bytes, so we construct a result that contains that
-			return l1HeaderHash.Bytes(), nil
+			return expectedHash.Bytes(), nil
 		},
 	}
 
 	// Create mock L1 client
 	mockL1Client := &testutil.MockEthClient{
 		BlockByHashFunc: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
-			assert.Equal(t, l1HeaderHash.Hex(), hash.Hex())
+			assert.Equal(t, header.Hash().Hex(), hash.Hex())
 			return block, nil
 		},
 	}
@@ -50,11 +49,12 @@ func TestL1OriginProver_ProveL1Origin(t *testing.T) {
 	prover := NewL1OriginProver(mockL1Client, mockL2Client)
 
 	// Call the method being tested
-	encodedHeader, resultHeader, err := prover.ProveL1Origin(context.Background(), l1OracleAddress)
+	hash, err := prover.GetL1OriginHash(context.Background(), l1OracleAddress)
 	require.NoError(t, err)
+	assert.Equal(t, expectedHash.Hex(), hash.Hex())
 
-	// Verify the results
+	encodedHeader, resultHeader, err := prover.GetL1Origin(context.Background(), hash)
+	require.NoError(t, err)
 	assert.Equal(t, expectedEncodedHeader, encodedHeader)
-	assert.Equal(t, block.Hash().Hex(), resultHeader.Hash().Hex())
 	assert.Equal(t, block.Number().Uint64(), resultHeader.Number.Uint64())
 }
