@@ -23,7 +23,8 @@ type IRPCClient interface {
 }
 
 type IL1OriginProver interface {
-	ProveL1Origin(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error)
+	GetL1OriginHash(ctx context.Context, l1OracleAddress common.Address) (common.Hash, error)
+	GetL1Origin(ctx context.Context, l1OriginHash common.Hash) ([]byte, *types.Header, error)
 }
 
 type IStorageProver interface {

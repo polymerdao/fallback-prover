@@ -48,7 +48,10 @@ func TestProver_GenerateProveCalldata(t *testing.T) {
 
 	// Create mock provers
 	mockL1OriginProver := &testutil.MockL1OriginProver{
-		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
+		GetL1OriginHashFunc: func(ctx context.Context, l1OracleAddress common.Address) (common.Hash, error) {
+			return l1Block.Hash(), nil
+		},
+		GetL1OriginFunc: func(ctx context.Context, l1OriginHash common.Hash) ([]byte, *types.Header, error) {
 			return rlpEncodedL1Header, l1Block.Header(), nil
 		},
 	}
@@ -201,7 +204,10 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 
 	// Create mock provers
 	mockL1OriginProver := &testutil.MockL1OriginProver{
-		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
+		GetL1OriginHashFunc: func(ctx context.Context, l1OracleAddress common.Address) (common.Hash, error) {
+			return l1Block.Hash(), nil
+		},
+		GetL1OriginFunc: func(ctx context.Context, l1OriginHash common.Hash) ([]byte, *types.Header, error) {
 			return rlpEncodedL1Header, l1Block.Header(), nil
 		},
 	}
@@ -391,7 +397,10 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 
 	// Create mock provers
 	mockL1OriginProver := &testutil.MockL1OriginProver{
-		ProveL1OriginFunc: func(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
+		GetL1OriginHashFunc: func(ctx context.Context, l1OracleAddress common.Address) (common.Hash, error) {
+			return l1Block.Hash(), nil
+		},
+		GetL1OriginFunc: func(ctx context.Context, l1OriginHash common.Hash) ([]byte, *types.Header, error) {
 			return rlpEncodedL1Header, l1Block.Header(), nil
 		},
 	}

@@ -29,12 +29,14 @@ type ProveL1Config struct {
 	L1HTTPPath      string
 	DstL2RPC        string
 	RegistryAddress common.Address
-	WaitForNewEpoch bool
 }
 
 type ProveParams struct {
-	Address     common.Address
-	StorageSlot common.Hash
+	Address           common.Address
+	StorageSlot       common.Hash
+	WaitForNewEpoch   bool
+	EpochPollingFreq  uint
+	EpochPollingTries uint
 }
 
 // NewConfigFromCLI creates a config from the provided *cli.Context
@@ -56,13 +58,15 @@ func NewL1ConfigFromCLI(ctx *cli.Context) *ProveL1Config {
 		DstL2RPC:        ctx.String(DstL2HTTPPath.Name),
 		DstL2ChainID:    ctx.Uint64(DstL2ChainID.Name),
 		RegistryAddress: common.HexToAddress(ctx.String(L1RegistryAddress.Name)),
-		WaitForNewEpoch: ctx.Bool(WaitForNewEpoch.Name),
 	}
 }
 
 func NewParamsFromCLI(ctx *cli.Context) *ProveParams {
 	return &ProveParams{
-		Address:     common.HexToAddress(ctx.String(SrcContractAddress.Name)),
-		StorageSlot: common.HexToHash(ctx.String(SrcStorageSlot.Name)),
+		Address:           common.HexToAddress(ctx.String(SrcContractAddress.Name)),
+		StorageSlot:       common.HexToHash(ctx.String(SrcStorageSlot.Name)),
+		WaitForNewEpoch:   ctx.Bool(WaitForNewEpoch.Name),
+		EpochPollingFreq:  ctx.Uint(EpochPollingFreq.Name),
+		EpochPollingTries: ctx.Uint(EpochPollingTries.Name),
 	}
 }

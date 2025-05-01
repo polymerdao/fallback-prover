@@ -68,6 +68,18 @@ var (
 		EnvVars: prefixEnvVars("WAIT_FOR_NEW_EPOCH"),
 		Value:   true,
 	}
+	EpochPollingFreq = &cli.UintFlag{
+		Name:    "epoch-polling-freq",
+		Usage:   "When wait-for-new-epoch is enabled this configures how often (in seconds) to check for a new epoch",
+		EnvVars: prefixEnvVars("EPOCH_POLLING_FREQ"),
+		Value:   1,
+	}
+	EpochPollingTries = &cli.UintFlag{
+		Name:    "epoch-polling-tries",
+		Usage:   "When wait-for-new-epoch is enabled this configures how many times to query for a new epoch before giving up",
+		EnvVars: prefixEnvVars("EPOCH_POLLING_TRIES"),
+		Value:   10,
+	}
 )
 
 var requiredProveFlags = []cli.Flag{
@@ -91,6 +103,8 @@ var requiredProveL1Flags = []cli.Flag{
 var optionalFlags = []cli.Flag{
 	L1RegistryAddress,
 	WaitForNewEpoch,
+	EpochPollingFreq,
+	EpochPollingTries,
 }
 
 // L2Flags contains the list of configuration options available for the prove commands

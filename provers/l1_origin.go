@@ -20,7 +20,7 @@ import (
 type L1OriginProver struct {
 	l1Client    IEthClient
 	l2Client    IEthClient
-	il1BlockABI abi.ABI
+	l1OracleABI abi.ABI
 }
 
 // NewL1OriginProver creates a new L1OriginProver
@@ -33,7 +33,7 @@ func NewL1OriginProver(l1Client IEthClient, l2Client IEthClient) *L1OriginProver
 	return &L1OriginProver{
 		l1Client:    l1Client,
 		l2Client:    l2Client,
-		il1BlockABI: il1BlockABI,
+		l1OracleABI: il1BlockABI,
 	}
 }
 
@@ -65,13 +65,10 @@ func getIL1BlockABI() (abi.ABI, error) {
 	return parsedABI, nil
 }
 
-// ProveL1Origin returns an RLP encoded L1 header for the current L1 origin of an L2 chain
-// and the corresponding L1 block
-func (l *L1OriginProver) ProveL1Origin(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
-	// Call hash() on the L1OracleAddress contract to figure out what the current L1 header hash is
-	data, err := l.il1BlockABI.Pack("hash")
+func (l *L1OriginProver) GetL1OriginHash(ctx context.Context, l1OracleAddress common.Address) (common.Hash, error) {
+	data, err := l.l1OracleABI.Pack("hash")
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to pack hash() call: %w", err)
+		return common.Hash{}, fmt.Errorf("failed to pack hash() call: %w", err)
 	}
 
 	result, err := l.l2Client.CallContract(ctx, ethereum.CallMsg{
@@ -79,27 +76,27 @@ func (l *L1OriginProver) ProveL1Origin(ctx context.Context, l1OracleAddress comm
 		Data: data,
 	}, nil) // Use latest block
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to call hash() on L1 oracle: %w", err)
+		return common.Hash{}, fmt.Errorf("failed to call hash() on L1 oracle: %w", err)
 	}
 
 	// Unpack the result to get the L1 header hash
 	if len(result) != 32 {
-		return nil, nil, fmt.Errorf("unexpected result length: %d", len(result))
+		return common.Hash{}, fmt.Errorf("unexpected result length: %d", len(result))
 	}
-	l1HeaderHash := common.BytesToHash(result)
 
-	// Call eth_getBlockByHash on the l1Client to get the L1 header
-	l1Block, err := l.l1Client.BlockByHash(ctx, l1HeaderHash)
+	return common.BytesToHash(result), nil
+}
+
+func (l *L1OriginProver) GetL1Origin(ctx context.Context, l1OriginHash common.Hash) ([]byte, *types.Header, error) {
+	l1Block, err := l.l1Client.BlockByHash(ctx, l1OriginHash)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get L1 block by hash: %w", err)
 	}
 
-	// RLP encode the header
-	header := l1Block.Header()
-	encodedHeader, err := rlp.EncodeToBytes(header)
+	encodedHeader, err := rlp.EncodeToBytes(l1Block.Header())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to RLP encode L1 header: %w", err)
 	}
 
-	return encodedHeader, header, nil
+	return encodedHeader, l1Block.Header(), nil
 }
