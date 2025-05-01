@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/rlp"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -23,7 +25,7 @@ type Prover struct {
 }
 
 // NewProver initializes a new prover with the given RPC endpoints
-func NewProver(l1RPCEndpoint, srcL2RPCEndpoint, dstL2RPCEndpoint string, srcL2ChainID uint64, registryAddr string) (*Prover, error) {
+func NewProver(l1RPCEndpoint, srcL2RPCEndpoint, dstL2RPCEndpoint string, srcL2ChainID uint64, registryAddr common.Address) (*Prover, error) {
 	// Set up L1 clients
 	l1RPC, err := rpc.Dial(l1RPCEndpoint)
 	if err != nil {
@@ -45,7 +47,7 @@ func NewProver(l1RPCEndpoint, srcL2RPCEndpoint, dstL2RPCEndpoint string, srcL2Ch
 	}
 	dstL2Client := ethclient.NewClient(dstL2RPC)
 
-	registryProver := provers.NewRegistryProver(l1Client, l1RPC, common.HexToAddress(registryAddr))
+	registryProver := provers.NewRegistryProver(l1Client, l1RPC, registryAddr)
 	nativeProver, err := provers.NewNativeProver()
 	if err != nil {
 		return nil, err
@@ -80,63 +82,66 @@ func NewProver(l1RPCEndpoint, srcL2RPCEndpoint, dstL2RPCEndpoint string, srcL2Ch
 	}, nil
 }
 
-// GenerateProofCalldata generates the calldata for the NativeProver.prove() function
-func (p *Prover) GenerateProofCalldata(
+// GenerateProveCalldata generates the calldata for the NativeProver.prove() function
+func (p *Prover) GenerateProveCalldata(
 	ctx context.Context,
 	srcL2ChainID uint64,
 	dstL2ChainID uint64,
-	srcAddress string,
-	srcStorageSlot string,
+	srcAddress common.Address,
+	srcStorageSlot common.Hash,
 ) (string, error) {
 	l1BlockHashOracle, err := p.registryProver.GetL1BlockHashOracle(ctx, dstL2ChainID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 block hash oracle: %w", err)
 	}
 
-	rlpEncodedL1Header, _, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
+	rlpEncodedL1Header, l1Header, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
 
-	contractAddr := common.HexToAddress(srcAddress)
-	slotHash := common.HexToHash(srcStorageSlot)
-
-	result, err := p.l2StorageProver.GetStorageAt(ctx, contractAddr, slotHash, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to get storage value: %w", err)
-	}
-
-	storageValue := common.HexToHash(result)
-
-	var settledStateProof []byte
-	var l2WorldStateRoot common.Hash
-	var rlpEncodedL2Header []byte
-
-	settledStateProof, l2WorldStateRoot, rlpEncodedL2Header, err = p.settledStateProver.GenerateSettledStateProof(
+	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
 		ctx,
+		l1Header.Number,
 		p.l2Config)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
 	}
 
+	result, err := p.l2StorageProver.GetStorageAt(ctx, srcAddress, srcStorageSlot, l2Header.Number)
+	if err != nil {
+		return "", fmt.Errorf("failed to get storage value: %w", err)
+	}
+	storageValue := common.HexToHash(result)
+
 	l2StorageProof, rlpEncodedContractAccount, l2AccountProof, err := p.l2StorageProver.GenerateStorageProof(
 		ctx,
-		contractAddr,
-		slotHash,
-		l2WorldStateRoot,
+		srcAddress,
+		srcStorageSlot,
+		l2Header.Root,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate storage proof: %w", err)
 	}
 
+	// Create ProveScalarArgs for the Prove call
+	proveArgs := types.ProveScalarArgs{
+		ChainID:          big.NewInt(int64(srcL2ChainID)),
+		ContractAddr:     srcAddress,
+		StorageSlot:      srcStorageSlot,
+		StorageValue:     storageValue,
+		L2WorldStateRoot: l2Header.Root,
+	}
+
+	rlpEncodedL2Header, err := rlp.EncodeToBytes(l2Header)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode L2 header: %w", err)
+	}
+
 	calldata, err := p.nativeProver.EncodeProveCalldata(
-		big.NewInt(int64(srcL2ChainID)),
-		contractAddr,
-		slotHash,
-		storageValue,
+		proveArgs,
 		rlpEncodedL1Header,
 		rlpEncodedL2Header,
-		l2WorldStateRoot,
 		settledStateProof,
 		l2StorageProof,
 		rlpEncodedContractAccount,
@@ -155,15 +160,15 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 	ctx context.Context,
 	srcL2ChainID uint64,
 	dstL2ChainID uint64,
-	srcAddress string,
-	srcStorageSlot string,
+	srcAddress common.Address,
+	srcStorageSlot common.Hash,
 ) (string, error) {
 	l1BlockHashOracle, err := p.registryProver.GetL1BlockHashOracle(ctx, dstL2ChainID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 block hash oracle: %w", err)
 	}
 
-	rlpEncodedL1Header, _, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
+	rlpEncodedL1Header, l1Header, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
@@ -174,32 +179,25 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 		return "", fmt.Errorf("failed to generate update L2 config args: %w", err)
 	}
 
-	contractAddr := common.HexToAddress(srcAddress)
-	slotHash := common.HexToHash(srcStorageSlot)
-
-	result, err := p.l2StorageProver.GetStorageAt(ctx, contractAddr, slotHash, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to get storage value: %w", err)
-	}
-
-	storageValue := common.HexToHash(result)
-
-	var settledStateProof []byte
-	var l2WorldStateRoot common.Hash
-	var rlpEncodedL2Header []byte
-
-	settledStateProof, l2WorldStateRoot, rlpEncodedL2Header, err = p.settledStateProver.GenerateSettledStateProof(
+	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
 		ctx,
+		l1Header.Number,
 		p.l2Config)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
 	}
 
+	result, err := p.l2StorageProver.GetStorageAt(ctx, srcAddress, srcStorageSlot, l2Header.Number)
+	if err != nil {
+		return "", fmt.Errorf("failed to get storage value: %w", err)
+	}
+	storageValue := common.HexToHash(result)
+
 	l2StorageProof, rlpEncodedContractAccount, l2AccountProof, err := p.l2StorageProver.GenerateStorageProof(
 		ctx,
-		contractAddr,
-		slotHash,
-		l2WorldStateRoot,
+		srcAddress,
+		srcStorageSlot,
+		l2Header.Root,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate storage proof: %w", err)
@@ -208,10 +206,15 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 	// Create ProveScalarArgs for the updateAndProve call
 	proveArgs := types.ProveScalarArgs{
 		ChainID:          big.NewInt(int64(srcL2ChainID)),
-		ContractAddr:     contractAddr,
-		StorageSlot:      slotHash,
+		ContractAddr:     srcAddress,
+		StorageSlot:      srcStorageSlot,
 		StorageValue:     storageValue,
-		L2WorldStateRoot: l2WorldStateRoot,
+		L2WorldStateRoot: l2Header.Root,
+	}
+
+	rlpEncodedL2Header, err := rlp.EncodeToBytes(l2Header)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode L2 header: %w", err)
 	}
 
 	calldata, err := p.nativeProver.EncodeUpdateAndProveCalldata(
@@ -237,15 +240,15 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 	ctx context.Context,
 	srcL2ChainID uint64,
 	dstL2ChainID uint64,
-	srcAddress string,
-	srcStorageSlot string,
+	srcAddress common.Address,
+	srcStorageSlot common.Hash,
 ) (string, error) {
 	l1BlockHashOracle, err := p.registryProver.GetL1BlockHashOracle(ctx, dstL2ChainID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 block hash oracle: %w", err)
 	}
 
-	rlpEncodedL1Header, _, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
+	rlpEncodedL1Header, l1Header, err := p.l1OriginProver.ProveL1Origin(ctx, l1BlockHashOracle)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
@@ -256,32 +259,25 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 		return "", fmt.Errorf("failed to generate update L2 config args: %w", err)
 	}
 
-	contractAddr := common.HexToAddress(srcAddress)
-	slotHash := common.HexToHash(srcStorageSlot)
-
-	result, err := p.l2StorageProver.GetStorageAt(ctx, contractAddr, slotHash, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to get storage value: %w", err)
-	}
-
-	storageValue := common.HexToHash(result)
-
-	var settledStateProof []byte
-	var l2WorldStateRoot common.Hash
-	var rlpEncodedL2Header []byte
-
-	settledStateProof, l2WorldStateRoot, rlpEncodedL2Header, err = p.settledStateProver.GenerateSettledStateProof(
+	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
 		ctx,
+		l1Header.Number,
 		p.l2Config)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
 	}
 
+	result, err := p.l2StorageProver.GetStorageAt(ctx, srcAddress, srcStorageSlot, l2Header.Number)
+	if err != nil {
+		return "", fmt.Errorf("failed to get storage value: %w", err)
+	}
+	storageValue := common.HexToHash(result)
+
 	l2StorageProof, rlpEncodedContractAccount, l2AccountProof, err := p.l2StorageProver.GenerateStorageProof(
 		ctx,
-		contractAddr,
-		slotHash,
-		l2WorldStateRoot,
+		srcAddress,
+		srcStorageSlot,
+		l2Header.Root,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate storage proof: %w", err)
@@ -290,10 +286,15 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 	// Create ProveScalarArgs for the configureAndProve call
 	proveArgs := types.ProveScalarArgs{
 		ChainID:          big.NewInt(int64(srcL2ChainID)),
-		ContractAddr:     contractAddr,
-		StorageSlot:      slotHash,
+		ContractAddr:     srcAddress,
+		StorageSlot:      srcStorageSlot,
 		StorageValue:     storageValue,
-		L2WorldStateRoot: l2WorldStateRoot,
+		L2WorldStateRoot: l2Header.Root,
+	}
+
+	rlpEncodedL2Header, err := rlp.EncodeToBytes(l2Header)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode L2 header: %w", err)
 	}
 
 	calldata, err := p.nativeProver.EncodeConfigureAndProveCalldata(

@@ -3,14 +3,12 @@ package provers
 import (
 	"fmt"
 	"io"
-	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	t "github.com/polymerdao/fallback_prover/types"
 )
 
@@ -61,27 +59,14 @@ func getNativeProverABI() (abi.ABI, error) {
 
 // EncodeProveCalldata encodes the parameters for the NativeProver.prove() function call
 func (np *NativeProver) EncodeProveCalldata(
-	chainID *big.Int,
-	contractAddr common.Address,
-	storageSlot common.Hash,
-	storageValue common.Hash,
+	proveArgs t.ProveScalarArgs,
 	rlpEncodedL1Header []byte,
 	rlpEncodedL2Header []byte,
-	l2WorldStateRoot common.Hash,
 	settledStateProof []byte,
 	l2StorageProof [][]byte,
 	rlpEncodedContractAccount []byte,
 	l2AccountProof [][]byte,
 ) ([]byte, error) {
-	// Create the ProveScalarArgs struct
-	proveArgs := t.ProveScalarArgs{
-		ChainID:          chainID,
-		ContractAddr:     contractAddr,
-		StorageSlot:      storageSlot,
-		StorageValue:     storageValue,
-		L2WorldStateRoot: l2WorldStateRoot,
-	}
-
 	// Pack the arguments for the prove function
 	return np.abi.Pack(
 		"prove",
@@ -140,6 +125,24 @@ func (np *NativeProver) EncodeConfigureAndProveCalldata(
 		l2StorageProof,
 		rlpEncodedContractAccount,
 		l2AccountProof,
+	)
+}
+
+// EncodeProveL1Calldata encodes the parameters for the NativeProver.proveL1() function call
+func (np *NativeProver) EncodeProveL1Calldata(
+	proveArgs t.ProveL1ScalarArgs,
+	rlpEncodedL1Header []byte,
+	l1StorageProof [][]byte,
+	rlpEncodedContractAccount []byte,
+	l1AccountProof [][]byte,
+) ([]byte, error) {
+	return np.abi.Pack(
+		"proveL1",
+		proveArgs,
+		rlpEncodedL1Header,
+		l1StorageProof,
+		rlpEncodedContractAccount,
+		l1AccountProof,
 	)
 }
 

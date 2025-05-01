@@ -67,7 +67,7 @@ func getIL1BlockABI() (abi.ABI, error) {
 
 // ProveL1Origin returns an RLP encoded L1 header for the current L1 origin of an L2 chain
 // and the corresponding L1 block
-func (l *L1OriginProver) ProveL1Origin(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Block, error) {
+func (l *L1OriginProver) ProveL1Origin(ctx context.Context, l1OracleAddress common.Address) ([]byte, *types.Header, error) {
 	// Call hash() on the L1OracleAddress contract to figure out what the current L1 header hash is
 	data, err := l.il1BlockABI.Pack("hash")
 	if err != nil {
@@ -101,5 +101,5 @@ func (l *L1OriginProver) ProveL1Origin(ctx context.Context, l1OracleAddress comm
 		return nil, nil, fmt.Errorf("failed to RLP encode L1 header: %w", err)
 	}
 
-	return encodedHeader, l1Block, nil
+	return encodedHeader, header, nil
 }

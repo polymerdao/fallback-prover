@@ -33,6 +33,7 @@ func main() {
 		ProveCmd,
 		UpdateAndProveCmd,
 		ConfigureAndProveCmd,
+		ProveL1Cmd,
 	}
 
 	// Create a context that gets canceled on interrupt signal
@@ -78,6 +79,14 @@ var ConfigureAndProveCmd = &cli.Command{
 	Flags:       fallback_prover.Flags,
 }
 
+var ProveL1Cmd = &cli.Command{
+	Name:        "proveL1",
+	Usage:       "Generate proof calldata for NativeProver.proveL1() function",
+	Description: "Generate the calldata for a transaction calling the NativeProver.proveL1() function",
+	Action:      proveL1,
+	Flags:       fallback_prover.Flags,
+}
+
 func prove(c *cli.Context) error {
 	if err := fallback_prover.CheckRequired(c); err != nil {
 		return err
@@ -85,7 +94,7 @@ func prove(c *cli.Context) error {
 
 	config := fallback_prover.NewConfigFromCLI(c)
 
-	log.Info("Generating proof calldata",
+	log.Info("Generating prove() calldata",
 		"srcL2ChainID", config.SrcL2ChainID,
 		"dstL2ChainID", config.DstL2ChainID,
 		"srcAddress", config.SrcAddress,
@@ -97,19 +106,58 @@ func prove(c *cli.Context) error {
 		config.SrcL2RPC,
 		config.DstL2RPC,
 		config.SrcL2ChainID,
-		config.RegistryAddress.String(),
+		config.RegistryAddress,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to initialize prover: %w", err)
 	}
 
 	// Generate proof calldata
-	calldata, err := prover.GenerateProofCalldata(
+	calldata, err := prover.GenerateProveCalldata(
 		c.Context,
 		config.SrcL2ChainID,
 		config.DstL2ChainID,
-		config.SrcAddress.String(),
-		config.SrcStorageSlot.String(),
+		config.SrcAddress,
+		config.SrcStorageSlot,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to generate proof calldata: %w", err)
+	}
+
+	// Output the calldata
+	fmt.Println(calldata)
+	return nil
+}
+
+func proveL1(c *cli.Context) error {
+	if err := fallback_prover.CheckRequired(c); err != nil {
+		return err
+	}
+
+	config := fallback_prover.NewConfigFromCLI(c)
+
+	log.Info("Generating proveL1() calldata",
+		"srcL2ChainID", config.SrcL2ChainID,
+		"dstL2ChainID", config.DstL2ChainID,
+		"srcAddress", config.SrcAddress,
+		"srcStorageSlot", config.SrcStorageSlot)
+
+	// Initialize the prover
+	prover, err := fallback_prover.NewL1Prover(
+		config.L1HTTPPath,
+		config.DstL2RPC,
+		config.RegistryAddress,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to initialize prover: %w", err)
+	}
+
+	// Generate proof calldata
+	calldata, err := prover.GenerateProveL1Calldata(
+		c.Context,
+		config.DstL2ChainID,
+		config.SrcAddress,
+		config.SrcStorageSlot,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to generate proof calldata: %w", err)
@@ -127,7 +175,7 @@ func updateAndProve(c *cli.Context) error {
 
 	config := fallback_prover.NewConfigFromCLI(c)
 
-	log.Info("Generating updateAndProve calldata",
+	log.Info("Generating updateAndProve() calldata",
 		"srcL2ChainID", config.SrcL2ChainID,
 		"dstL2ChainID", config.DstL2ChainID,
 		"srcAddress", config.SrcAddress,
@@ -139,7 +187,7 @@ func updateAndProve(c *cli.Context) error {
 		config.SrcL2RPC,
 		config.DstL2RPC,
 		config.SrcL2ChainID,
-		config.RegistryAddress.String(),
+		config.RegistryAddress,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to initialize prover: %w", err)
@@ -150,8 +198,8 @@ func updateAndProve(c *cli.Context) error {
 		c.Context,
 		config.SrcL2ChainID,
 		config.DstL2ChainID,
-		config.SrcAddress.String(),
-		config.SrcStorageSlot.String(),
+		config.SrcAddress,
+		config.SrcStorageSlot,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to generate updateAndProve calldata: %w", err)
@@ -169,7 +217,7 @@ func configureAndProve(c *cli.Context) error {
 
 	config := fallback_prover.NewConfigFromCLI(c)
 
-	log.Info("Generating configureAndProve calldata",
+	log.Info("Generating configureAndProve() calldata",
 		"srcL2ChainID", config.SrcL2ChainID,
 		"dstL2ChainID", config.DstL2ChainID,
 		"srcAddress", config.SrcAddress,
@@ -181,7 +229,7 @@ func configureAndProve(c *cli.Context) error {
 		config.SrcL2RPC,
 		config.DstL2RPC,
 		config.SrcL2ChainID,
-		config.RegistryAddress.String(),
+		config.RegistryAddress,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to initialize prover: %w", err)
@@ -192,8 +240,8 @@ func configureAndProve(c *cli.Context) error {
 		c.Context,
 		config.SrcL2ChainID,
 		config.DstL2ChainID,
-		config.SrcAddress.String(),
-		config.SrcStorageSlot.String(),
+		config.SrcAddress,
+		config.SrcStorageSlot,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to generate configureAndProve calldata: %w", err)

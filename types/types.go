@@ -59,11 +59,19 @@ type UpdateL2ConfigArgs struct {
 	L1RegistryProof               [][]byte
 }
 
-// ProveScalarArgs represents the arguments for the prove scalar function
+// ProveScalarArgs holds scalar arguments for the prove function
 type ProveScalarArgs struct {
 	ChainID          *big.Int
 	ContractAddr     common.Address
 	StorageSlot      common.Hash
 	StorageValue     common.Hash
 	L2WorldStateRoot common.Hash
+}
+
+// ProveL1ScalarArgs holds scalar arguments for the proveL1 function
+type ProveL1ScalarArgs struct {
+	ContractAddr     common.Address
+	StorageSlot      common.Hash
+	StorageValue     common.Hash
+	L1WorldStateRoot common.Hash
 }
