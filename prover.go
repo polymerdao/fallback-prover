@@ -125,7 +125,7 @@ func (p *Prover) GenerateProveCalldata(
 		ctx,
 		params.Address,
 		params.StorageSlot,
-		l2Header.Root,
+		l2Header.Number,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate storage proof: %w", err)
@@ -190,7 +190,7 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 		ctx,
 		params.Address,
 		params.StorageSlot,
-		l2Header.Root,
+		l2Header.Number,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate storage proof: %w", err)
@@ -256,7 +256,7 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 		ctx,
 		params.Address,
 		params.StorageSlot,
-		l2Header.Root,
+		l2Header.Number,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate storage proof: %w", err)

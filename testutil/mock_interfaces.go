@@ -33,21 +33,30 @@ func (m *MockRegistryProver) GetL1BlockHashOracle(ctx context.Context, chainID u
 	return common.Address{}, nil
 }
 
-func (m *MockRegistryProver) GetL2ConfigurationForUpdate(ctx context.Context, chainID uint64) (*t.L2Configuration, error) {
+func (m *MockRegistryProver) GetL2ConfigurationForUpdate(
+	ctx context.Context,
+	chainID uint64,
+) (*t.L2Configuration, error) {
 	if m.GetL2ConfigurationForUpdateFunc != nil {
 		return m.GetL2ConfigurationForUpdateFunc(ctx, chainID)
 	}
 	return nil, nil
 }
 
-func (m *MockRegistryProver) GetRegistryStorageProof(ctx context.Context, chainID uint64) ([][]byte, []byte, [][]byte, error) {
+func (m *MockRegistryProver) GetRegistryStorageProof(
+	ctx context.Context,
+	chainID uint64,
+) ([][]byte, []byte, [][]byte, error) {
 	if m.GetRegistryStorageProofFunc != nil {
 		return m.GetRegistryStorageProofFunc(ctx, chainID)
 	}
 	return nil, nil, nil, nil
 }
 
-func (m *MockRegistryProver) GenerateUpdateL2ConfigArgs(ctx context.Context, chainID uint64) (*t.UpdateL2ConfigArgs, error) {
+func (m *MockRegistryProver) GenerateUpdateL2ConfigArgs(
+	ctx context.Context,
+	chainID uint64,
+) (*t.UpdateL2ConfigArgs, error) {
 	if m.GenerateUpdateL2ConfigArgsFunc != nil {
 		return m.GenerateUpdateL2ConfigArgsFunc(ctx, chainID)
 	}
@@ -78,26 +87,41 @@ func (m *MockL1OriginProver) GetL1Origin(ctx context.Context, l1Hash common.Hash
 type MockStorageProver struct {
 	GetStorageAtFunc         func(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (string, error)
 	GetStorageProofFunc      func(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (*t.StorageProofResult, error)
-	GenerateStorageProofFunc func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, stateRoot common.Hash) ([][]byte, []byte, [][]byte, error)
+	GenerateStorageProofFunc func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, blockNumber *big.Int) ([][]byte, []byte, [][]byte, error)
 }
 
-func (m *MockStorageProver) GetStorageAt(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (string, error) {
+func (m *MockStorageProver) GetStorageAt(
+	ctx context.Context,
+	address common.Address,
+	slot common.Hash,
+	blockNumber *big.Int,
+) (string, error) {
 	if m.GetStorageAtFunc != nil {
 		return m.GetStorageAtFunc(ctx, address, slot, blockNumber)
 	}
 	return "", nil
 }
 
-func (m *MockStorageProver) GetStorageProof(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (*t.StorageProofResult, error) {
+func (m *MockStorageProver) GetStorageProof(
+	ctx context.Context,
+	address common.Address,
+	slot common.Hash,
+	blockNumber *big.Int,
+) (*t.StorageProofResult, error) {
 	if m.GetStorageProofFunc != nil {
 		return m.GetStorageProofFunc(ctx, address, slot, blockNumber)
 	}
 	return nil, nil
 }
 
-func (m *MockStorageProver) GenerateStorageProof(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, stateRoot common.Hash) ([][]byte, []byte, [][]byte, error) {
+func (m *MockStorageProver) GenerateStorageProof(
+	ctx context.Context,
+	contractAddr common.Address,
+	storageSlot common.Hash,
+	blockNumber *big.Int,
+) ([][]byte, []byte, [][]byte, error) {
 	if m.GenerateStorageProofFunc != nil {
-		return m.GenerateStorageProofFunc(ctx, contractAddr, storageSlot, stateRoot)
+		return m.GenerateStorageProofFunc(ctx, contractAddr, storageSlot, blockNumber)
 	}
 	return nil, nil, nil, nil
 }
@@ -107,7 +131,11 @@ type MockOPStackBedrockProver struct {
 	GenerateSettledStateProofFunc func(ctx context.Context, l1BlockNumber *big.Int, config *t.L2ConfigInfo) ([]byte, *types.Header, error)
 }
 
-func (m *MockOPStackBedrockProver) GenerateSettledStateProof(ctx context.Context, l1BlockNumber *big.Int, config *t.L2ConfigInfo) ([]byte, *types.Header, error) {
+func (m *MockOPStackBedrockProver) GenerateSettledStateProof(
+	ctx context.Context,
+	l1BlockNumber *big.Int,
+	config *t.L2ConfigInfo,
+) ([]byte, *types.Header, error) {
 	if m.GenerateSettledStateProofFunc != nil {
 		return m.GenerateSettledStateProofFunc(ctx, l1BlockNumber, config)
 	}
@@ -119,7 +147,11 @@ type MockOPStackCannonProver struct {
 	GenerateSettledStateProofFunc func(ctx context.Context, l1BlockNumber *big.Int, config *t.L2ConfigInfo) ([]byte, *types.Header, error)
 }
 
-func (m *MockOPStackCannonProver) GenerateSettledStateProof(ctx context.Context, l1BlockNumber *big.Int, config *t.L2ConfigInfo) ([]byte, *types.Header, error) {
+func (m *MockOPStackCannonProver) GenerateSettledStateProof(
+	ctx context.Context,
+	l1BlockNumber *big.Int,
+	config *t.L2ConfigInfo,
+) ([]byte, *types.Header, error) {
 	if m.GenerateSettledStateProofFunc != nil {
 		return m.GenerateSettledStateProofFunc(ctx, l1BlockNumber, config)
 	}
@@ -146,21 +178,69 @@ func (m *MockNativeProver) EncodeProveCalldata(
 	l2AccountProof [][]byte,
 ) ([]byte, error) {
 	if m.EncodeProveCalldataFunc != nil {
-		return m.EncodeProveCalldataFunc(proveArgs.ChainID, proveArgs.ContractAddr, proveArgs.StorageSlot, proveArgs.StorageValue, rlpEncodedL1Header, rlpEncodedL2Header, proveArgs.L2WorldStateRoot, settledStateProof, l2StorageProof, rlpEncodedContractAccount, l2AccountProof)
+		return m.EncodeProveCalldataFunc(
+			proveArgs.ChainID,
+			proveArgs.ContractAddr,
+			proveArgs.StorageSlot,
+			proveArgs.StorageValue,
+			rlpEncodedL1Header,
+			rlpEncodedL2Header,
+			proveArgs.L2WorldStateRoot,
+			settledStateProof,
+			l2StorageProof,
+			rlpEncodedContractAccount,
+			l2AccountProof,
+		)
 	}
 	return nil, nil
 }
 
-func (m *MockNativeProver) EncodeUpdateAndProveCalldata(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error) {
+func (m *MockNativeProver) EncodeUpdateAndProveCalldata(
+	updateArgs t.UpdateL2ConfigArgs,
+	proveArgs t.ProveScalarArgs,
+	rlpEncodedL1Header []byte,
+	rlpEncodedL2Header []byte,
+	settledStateProof []byte,
+	l2StorageProof [][]byte,
+	rlpEncodedContractAccount []byte,
+	l2AccountProof [][]byte,
+) ([]byte, error) {
 	if m.EncodeUpdateAndProveCalldataFunc != nil {
-		return m.EncodeUpdateAndProveCalldataFunc(updateArgs, proveArgs, rlpEncodedL1Header, rlpEncodedL2Header, settledStateProof, l2StorageProof, rlpEncodedContractAccount, l2AccountProof)
+		return m.EncodeUpdateAndProveCalldataFunc(
+			updateArgs,
+			proveArgs,
+			rlpEncodedL1Header,
+			rlpEncodedL2Header,
+			settledStateProof,
+			l2StorageProof,
+			rlpEncodedContractAccount,
+			l2AccountProof,
+		)
 	}
 	return nil, nil
 }
 
-func (m *MockNativeProver) EncodeConfigureAndProveCalldata(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error) {
+func (m *MockNativeProver) EncodeConfigureAndProveCalldata(
+	updateArgs t.UpdateL2ConfigArgs,
+	proveArgs t.ProveScalarArgs,
+	rlpEncodedL1Header []byte,
+	rlpEncodedL2Header []byte,
+	settledStateProof []byte,
+	l2StorageProof [][]byte,
+	rlpEncodedContractAccount []byte,
+	l2AccountProof [][]byte,
+) ([]byte, error) {
 	if m.EncodeConfigureAndProveCalldataFunc != nil {
-		return m.EncodeConfigureAndProveCalldataFunc(updateArgs, proveArgs, rlpEncodedL1Header, rlpEncodedL2Header, settledStateProof, l2StorageProof, rlpEncodedContractAccount, l2AccountProof)
+		return m.EncodeConfigureAndProveCalldataFunc(
+			updateArgs,
+			proveArgs,
+			rlpEncodedL1Header,
+			rlpEncodedL2Header,
+			settledStateProof,
+			l2StorageProof,
+			rlpEncodedContractAccount,
+			l2AccountProof,
+		)
 	}
 	return nil, nil
 }

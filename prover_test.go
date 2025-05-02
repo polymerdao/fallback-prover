@@ -60,7 +60,7 @@ func TestProver_GenerateProveCalldata(t *testing.T) {
 		GetStorageAtFunc: func(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (string, error) {
 			return "0x0000000000000000000000000000000000000000000000000000000000000123", nil
 		},
-		GenerateStorageProofFunc: func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, stateRoot common.Hash) ([][]byte, []byte, [][]byte, error) {
+		GenerateStorageProofFunc: func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, blockNumber *big.Int) ([][]byte, []byte, [][]byte, error) {
 			return mockStorageProof, mockEncodedContractAccount, mockAccountProof, nil
 		},
 	}
@@ -216,7 +216,7 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 		GetStorageAtFunc: func(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (string, error) {
 			return "0x0000000000000000000000000000000000000000000000000000000000000123", nil
 		},
-		GenerateStorageProofFunc: func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, stateRoot common.Hash) ([][]byte, []byte, [][]byte, error) {
+		GenerateStorageProofFunc: func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, blockNumber *big.Int) ([][]byte, []byte, [][]byte, error) {
 			return mockStorageProof, mockEncodedContractAccount, mockAccountProof, nil
 		},
 	}
@@ -301,14 +301,43 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 	require.True(t, ok, "Failed to cast updateArgsVal to expected struct type")
 
 	// Verify the updateArgs fields match expected values
-	assert.Equal(t, common.HexToAddress("0x9876543210abcdef9876543210abcdef98765432").Hex(), updateArgsStruct.Config.Prover.Hex(), "Prover address should match")
-	assert.Equal(t, common.HexToAddress("0xdeadbeef").Hex(), updateArgsStruct.Config.Addresses[0].Hex(), "Config address should match")
-	assert.Equal(t, big.NewInt(123).String(), updateArgsStruct.Config.StorageSlots[0].String(), "StorageSlot should match")
-	assert.Equal(t, big.NewInt(1).String(), updateArgsStruct.Config.VersionNumber.String(), "VersionNumber should match")
-	assert.Equal(t, big.NewInt(300).String(), updateArgsStruct.Config.FinalityDelaySeconds.String(), "FinalityDelaySeconds should match")
+	assert.Equal(
+		t,
+		common.HexToAddress("0x9876543210abcdef9876543210abcdef98765432").Hex(),
+		updateArgsStruct.Config.Prover.Hex(),
+		"Prover address should match",
+	)
+	assert.Equal(
+		t,
+		common.HexToAddress("0xdeadbeef").Hex(),
+		updateArgsStruct.Config.Addresses[0].Hex(),
+		"Config address should match",
+	)
+	assert.Equal(
+		t,
+		big.NewInt(123).String(),
+		updateArgsStruct.Config.StorageSlots[0].String(),
+		"StorageSlot should match",
+	)
+	assert.Equal(
+		t,
+		big.NewInt(1).String(),
+		updateArgsStruct.Config.VersionNumber.String(),
+		"VersionNumber should match",
+	)
+	assert.Equal(
+		t,
+		big.NewInt(300).String(),
+		updateArgsStruct.Config.FinalityDelaySeconds.String(),
+		"FinalityDelaySeconds should match",
+	)
 	assert.Equal(t, uint8(types2.OPStackBedrock), updateArgsStruct.Config.L2Type, "L2Type should match")
 	assert.NotEmpty(t, updateArgsStruct.L1StorageProof, "L1StorageProof should be present")
-	assert.NotEmpty(t, updateArgsStruct.RlpEncodedRegistryAccountData, "RlpEncodedRegistryAccountData should be present")
+	assert.NotEmpty(
+		t,
+		updateArgsStruct.RlpEncodedRegistryAccountData,
+		"RlpEncodedRegistryAccountData should be present",
+	)
 	assert.NotEmpty(t, updateArgsStruct.L1RegistryProof, "L1RegistryProof should be present")
 
 	// Verify the _proveArgs
@@ -409,7 +438,7 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 		GetStorageAtFunc: func(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (string, error) {
 			return "0x0000000000000000000000000000000000000000000000000000000000000123", nil
 		},
-		GenerateStorageProofFunc: func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, stateRoot common.Hash) ([][]byte, []byte, [][]byte, error) {
+		GenerateStorageProofFunc: func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, blockNumber *big.Int) ([][]byte, []byte, [][]byte, error) {
 			return mockStorageProof, mockEncodedContractAccount, mockAccountProof, nil
 		},
 	}
@@ -494,14 +523,43 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 	require.True(t, ok, "Failed to cast updateArgsVal to expected struct type")
 
 	// Verify the updateArgs fields match expected values
-	assert.Equal(t, common.HexToAddress("0x9876543210abcdef9876543210abcdef98765432").Hex(), updateArgsStruct.Config.Prover.Hex(), "Prover address should match")
-	assert.Equal(t, common.HexToAddress("0xdeadbeef").Hex(), updateArgsStruct.Config.Addresses[0].Hex(), "Config address should match")
-	assert.Equal(t, big.NewInt(123).String(), updateArgsStruct.Config.StorageSlots[0].String(), "StorageSlot should match")
-	assert.Equal(t, big.NewInt(1).String(), updateArgsStruct.Config.VersionNumber.String(), "VersionNumber should match")
-	assert.Equal(t, big.NewInt(300).String(), updateArgsStruct.Config.FinalityDelaySeconds.String(), "FinalityDelaySeconds should match")
+	assert.Equal(
+		t,
+		common.HexToAddress("0x9876543210abcdef9876543210abcdef98765432").Hex(),
+		updateArgsStruct.Config.Prover.Hex(),
+		"Prover address should match",
+	)
+	assert.Equal(
+		t,
+		common.HexToAddress("0xdeadbeef").Hex(),
+		updateArgsStruct.Config.Addresses[0].Hex(),
+		"Config address should match",
+	)
+	assert.Equal(
+		t,
+		big.NewInt(123).String(),
+		updateArgsStruct.Config.StorageSlots[0].String(),
+		"StorageSlot should match",
+	)
+	assert.Equal(
+		t,
+		big.NewInt(1).String(),
+		updateArgsStruct.Config.VersionNumber.String(),
+		"VersionNumber should match",
+	)
+	assert.Equal(
+		t,
+		big.NewInt(300).String(),
+		updateArgsStruct.Config.FinalityDelaySeconds.String(),
+		"FinalityDelaySeconds should match",
+	)
 	assert.Equal(t, uint8(types2.OPStackCannon), updateArgsStruct.Config.L2Type, "L2Type should match")
 	assert.NotEmpty(t, updateArgsStruct.L1StorageProof, "L1StorageProof should be present")
-	assert.NotEmpty(t, updateArgsStruct.RlpEncodedRegistryAccountData, "RlpEncodedRegistryAccountData should be present")
+	assert.NotEmpty(
+		t,
+		updateArgsStruct.RlpEncodedRegistryAccountData,
+		"RlpEncodedRegistryAccountData should be present",
+	)
 	assert.NotEmpty(t, updateArgsStruct.L1RegistryProof, "L1RegistryProof should be present")
 
 	// Verify the _proveArgs
