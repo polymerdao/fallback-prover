@@ -22,10 +22,10 @@ type Prover struct {
 	nativeProver       provers.INativeProver
 	l2StorageProver    provers.IStorageProver
 	settledStateProver provers.ISettledStateProver
+	registryProver     provers.IRegistryProver
 	l2Config           *types.L2ConfigInfo
 	l1BlockHashOracle  common.Address
 	srcChainID         *big.Int
-	configProof        *types.UpdateL2ConfigArgs
 }
 
 // NewProver initializes a new prover with the given RPC endpoints
@@ -66,10 +66,6 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 	if err != nil {
 		return nil, err
 	}
-	l2ConfigProof, err := registryProver.GenerateUpdateL2ConfigArgs(ctx, conf.SrcL2ChainID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate L2 config proof: %w", err)
-	}
 
 	var settledStateProver provers.ISettledStateProver
 	if l2Config.ConfigType == "OPStackBedrock" {
@@ -90,10 +86,10 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 		l2StorageProver:    provers.NewStorageProver(srcL2Client, srcL2RPC),
 		nativeProver:       nativeProver,
 		settledStateProver: settledStateProver,
+		registryProver:     registryProver,
 		l2Config:           l2Config,
 		l1BlockHashOracle:  l1BlockHashOracle,
 		srcChainID:         big.NewInt(int64(conf.SrcL2ChainID)),
-		configProof:        l2ConfigProof,
 	}, nil
 }
 
@@ -172,6 +168,11 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
 
+	l2ConfigProof, err := p.registryProver.GenerateUpdateL2ConfigArgs(ctx, p.srcChainID.Uint64(), l1Header.Number)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate L2 config proof: %w", err)
+	}
+
 	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
 		ctx,
 		l1Header.Number,
@@ -211,7 +212,7 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 	}
 
 	calldata, err := p.nativeProver.EncodeUpdateAndProveCalldata(
-		*p.configProof,
+		*l2ConfigProof,
 		proveArgs,
 		rlpEncodedL1Header,
 		rlpEncodedL2Header,
@@ -236,6 +237,11 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 	rlpEncodedL1Header, l1Header, err := p.GetL1Origin(ctx, params)
 	if err != nil {
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
+	}
+
+	l2ConfigProof, err := p.registryProver.GenerateUpdateL2ConfigArgs(ctx, p.srcChainID.Uint64(), l1Header.Number)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate L2 config proof: %w", err)
 	}
 
 	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
@@ -277,7 +283,7 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 	}
 
 	calldata, err := p.nativeProver.EncodeConfigureAndProveCalldata(
-		*p.configProof,
+		*l2ConfigProof,
 		proveArgs,
 		rlpEncodedL1Header,
 		rlpEncodedL2Header,

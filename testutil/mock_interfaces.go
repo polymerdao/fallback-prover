@@ -12,11 +12,9 @@ import (
 
 // MockRegistryProver is a mock implementation of the provers.IRegistryProver interface
 type MockRegistryProver struct {
-	GetL2ConfigurationFunc          func(ctx context.Context, chainID uint64) (*t.L2ConfigInfo, error)
-	GetL1BlockHashOracleFunc        func(ctx context.Context, chainID uint64) (common.Address, error)
-	GetL2ConfigurationForUpdateFunc func(ctx context.Context, chainID uint64) (*t.L2Configuration, error)
-	GetRegistryStorageProofFunc     func(ctx context.Context, chainID uint64) ([][]byte, []byte, [][]byte, error)
-	GenerateUpdateL2ConfigArgsFunc  func(ctx context.Context, chainID uint64) (*t.UpdateL2ConfigArgs, error)
+	GetL2ConfigurationFunc         func(ctx context.Context, chainID uint64) (*t.L2ConfigInfo, error)
+	GetL1BlockHashOracleFunc       func(ctx context.Context, chainID uint64) (common.Address, error)
+	GenerateUpdateL2ConfigArgsFunc func(ctx context.Context, chainID uint64, blockHeight *big.Int) (*t.UpdateL2ConfigArgs, error)
 }
 
 func (m *MockRegistryProver) GetL2Configuration(ctx context.Context, chainID uint64) (*t.L2ConfigInfo, error) {
@@ -33,32 +31,13 @@ func (m *MockRegistryProver) GetL1BlockHashOracle(ctx context.Context, chainID u
 	return common.Address{}, nil
 }
 
-func (m *MockRegistryProver) GetL2ConfigurationForUpdate(
-	ctx context.Context,
-	chainID uint64,
-) (*t.L2Configuration, error) {
-	if m.GetL2ConfigurationForUpdateFunc != nil {
-		return m.GetL2ConfigurationForUpdateFunc(ctx, chainID)
-	}
-	return nil, nil
-}
-
-func (m *MockRegistryProver) GetRegistryStorageProof(
-	ctx context.Context,
-	chainID uint64,
-) ([][]byte, []byte, [][]byte, error) {
-	if m.GetRegistryStorageProofFunc != nil {
-		return m.GetRegistryStorageProofFunc(ctx, chainID)
-	}
-	return nil, nil, nil, nil
-}
-
 func (m *MockRegistryProver) GenerateUpdateL2ConfigArgs(
 	ctx context.Context,
 	chainID uint64,
+	blockHeight *big.Int,
 ) (*t.UpdateL2ConfigArgs, error) {
 	if m.GenerateUpdateL2ConfigArgsFunc != nil {
-		return m.GenerateUpdateL2ConfigArgsFunc(ctx, chainID)
+		return m.GenerateUpdateL2ConfigArgsFunc(ctx, chainID, blockHeight)
 	}
 	return nil, nil
 }

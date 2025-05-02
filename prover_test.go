@@ -203,6 +203,16 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 	}
 
 	// Create mock provers
+	mockRegistryProver := &testutil.MockRegistryProver{
+		GenerateUpdateL2ConfigArgsFunc: func(ctx context.Context, chainID uint64, blockNumber *big.Int) (*types2.UpdateL2ConfigArgs, error) {
+			return &types2.UpdateL2ConfigArgs{
+				Config:                        l2Config,
+				L1StorageProof:                mockL1StorageProof,
+				RlpEncodedRegistryAccountData: mockEncodedRegistryAccount,
+				L1RegistryProof:               mockL1RegistryProof,
+			}, nil
+		},
+	}
 	mockL1OriginProver := &testutil.MockL1OriginProver{
 		GetL1OriginHashFunc: func(ctx context.Context, l1OracleAddress common.Address) (common.Hash, error) {
 			return l1Block.Hash(), nil
@@ -236,15 +246,10 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 		nativeProver:       nativeProver,
 		l2StorageProver:    mockStorageProver,
 		settledStateProver: mockBedrockProver,
+		registryProver:     mockRegistryProver,
 		l2Config:           testConfig,
 		l1BlockHashOracle:  common.HexToAddress("0x5678"),
 		srcChainID:         big.NewInt(int64(srcL2ChainID)), // Initialize the srcChainID field
-		configProof: &types2.UpdateL2ConfigArgs{
-			Config:                        l2Config,
-			L1StorageProof:                mockL1StorageProof,
-			RlpEncodedRegistryAccountData: mockEncodedRegistryAccount,
-			L1RegistryProof:               mockL1RegistryProof,
-		},
 	}
 
 	// Call the method being tested
@@ -425,6 +430,16 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 	}
 
 	// Create mock provers
+	mockRegistryProver := &testutil.MockRegistryProver{
+		GenerateUpdateL2ConfigArgsFunc: func(ctx context.Context, chainID uint64, blockNumber *big.Int) (*types2.UpdateL2ConfigArgs, error) {
+			return &types2.UpdateL2ConfigArgs{
+				Config:                        l2Config,
+				L1StorageProof:                mockL1StorageProof,
+				RlpEncodedRegistryAccountData: mockEncodedRegistryAccount,
+				L1RegistryProof:               mockL1RegistryProof,
+			}, nil
+		},
+	}
 	mockL1OriginProver := &testutil.MockL1OriginProver{
 		GetL1OriginHashFunc: func(ctx context.Context, l1OracleAddress common.Address) (common.Hash, error) {
 			return l1Block.Hash(), nil
@@ -458,15 +473,10 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 		nativeProver:       nativeProver,
 		l2StorageProver:    mockStorageProver,
 		settledStateProver: mockCannonProver,
+		registryProver:     mockRegistryProver,
 		l2Config:           testConfig,
 		l1BlockHashOracle:  common.HexToAddress("0x5678"),
 		srcChainID:         big.NewInt(int64(srcL2ChainID)), // Initialize the srcChainID field
-		configProof: &types2.UpdateL2ConfigArgs{
-			Config:                        l2Config,
-			L1StorageProof:                mockL1StorageProof,
-			RlpEncodedRegistryAccountData: mockEncodedRegistryAccount,
-			L1RegistryProof:               mockL1RegistryProof,
-		},
 	}
 
 	// Call the method being tested
