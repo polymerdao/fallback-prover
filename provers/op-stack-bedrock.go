@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"io"
 	"math/big"
 	"os"
@@ -274,7 +275,10 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	// Convert storage proof to bytes
 	l1StorageProof := make([][]byte, len(proof.StorageProof[0].Proof))
 	for i, p := range proof.StorageProof[0].Proof {
-		l1StorageProof[i] = common.FromHex(p)
+		l1StorageProof[i], err = hexutil.Decode(p)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Create RLP encoded account data
@@ -293,7 +297,10 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	// Convert account proof to bytes
 	l1AccountProof := make([][]byte, len(proof.AccountProof))
 	for i, p := range proof.AccountProof {
-		l1AccountProof[i] = common.FromHex(p)
+		l1AccountProof[i], err = hexutil.Decode(p)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Step 6: Package everything together in the format expected by the prover contract

@@ -3,6 +3,9 @@ package provers
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/trie"
+	"github.com/ethereum/go-ethereum/trie/trienode"
 	"io"
 	"math/big"
 	"os"
@@ -301,7 +304,7 @@ func (r *RegistryProver) getL2ConfigurationForUpdate(ctx context.Context, chainI
 }
 
 // getRegistryStorageProof gets a storage proof for the registry contract
-func (r *RegistryProver) getRegistryStorageProof(ctx context.Context, chainID uint64, blockNumber *big.Int) ([][]byte, []byte, [][]byte, error) {
+func (r *RegistryProver) getRegistryStorageProof(ctx context.Context, chainID uint64, blockNumber *big.Int, _ common.Hash, _ common.Address) ([][]byte, []byte, [][]byte, error) {
 	// Calculate the storage slot for l2ChainConfigurationHashMap[chainID]
 	// In Solidity, the storage slot for mapping(uint256 => bytes32) at position X is keccak256(key . X)
 	// where . is concatenation and X is the position (padded to 32 bytes)
@@ -324,8 +327,21 @@ func (r *RegistryProver) getRegistryStorageProof(ctx context.Context, chainID ui
 	// Convert account proof to bytes
 	accountProof := make([][]byte, len(result.AccountProof))
 	for i, p := range result.AccountProof {
-		accountProof[i] = common.FromHex(p)
+		accountProof[i], err = hexutil.Decode(p)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
+
+	fmt.Printf(result.StorageHash.Hex())
+
+	/*
+		res, err := verifyTrieProof(stateRoot.Bytes(), address.Bytes(), accountProof)
+		if err != nil {
+			panic(fmt.Errorf("failed to verify account proof: %w", err))
+			return nil, nil, nil, err
+		}
+	*/
 
 	// Check if we have a storage proof
 	if len(result.StorageProof) == 0 {
@@ -335,7 +351,10 @@ func (r *RegistryProver) getRegistryStorageProof(ctx context.Context, chainID ui
 	// Convert storage proof to bytes
 	storageProof := make([][]byte, len(result.StorageProof[0].Proof))
 	for i, p := range result.StorageProof[0].Proof {
-		storageProof[i] = common.FromHex(p)
+		storageProof[i], err = hexutil.Decode(p)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
 	// Create an account object
@@ -355,8 +374,25 @@ func (r *RegistryProver) getRegistryStorageProof(ctx context.Context, chainID ui
 	return storageProof, rlpEncodedAccount, accountProof, nil
 }
 
+// verifyTrieProof verifies an eth1 trie proof.
+func verifyTrieProof(root, key []byte, proof [][]byte) ([]byte, error) {
+	if len(root) != common.HashLength {
+		return nil, fmt.Errorf("invalid root length")
+	}
+	rootHash := common.BytesToHash(root)
+
+	nodes := make(trienode.ProofList, 0, len(proof))
+	for _, b := range proof {
+		nodes = append(nodes, rlp.RawValue(b))
+	}
+	proofDb := nodes.Set()
+	keyHash := crypto.Keccak256(key)
+
+	return trie.VerifyProof(rootHash, keyHash, proofDb)
+}
+
 // GenerateUpdateL2ConfigArgs builds a complete UpdateL2ConfigArgs structure
-func (r *RegistryProver) GenerateUpdateL2ConfigArgs(ctx context.Context, chainID uint64, blockNumber *big.Int) (*t.UpdateL2ConfigArgs, error) {
+func (r *RegistryProver) GenerateUpdateL2ConfigArgs(ctx context.Context, chainID uint64, blockNumber *big.Int, stateRoot common.Hash, address common.Address) (*t.UpdateL2ConfigArgs, error) {
 	// Get the L2 configuration
 	l2Config, err := r.getL2ConfigurationForUpdate(ctx, chainID)
 	if err != nil {
@@ -364,7 +400,7 @@ func (r *RegistryProver) GenerateUpdateL2ConfigArgs(ctx context.Context, chainID
 	}
 
 	// Get the registry storage proof
-	l1StorageProof, rlpEncodedRegistryData, l1RegistryProof, err := r.getRegistryStorageProof(ctx, chainID, blockNumber)
+	l1StorageProof, rlpEncodedRegistryData, l1RegistryProof, err := r.getRegistryStorageProof(ctx, chainID, blockNumber, stateRoot, address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry storage proof: %w", err)
 	}

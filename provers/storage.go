@@ -83,7 +83,10 @@ func (s *StorageProver) GenerateStorageProof(
 	// Convert account proof to bytes
 	accountProof := make([][]byte, len(proof.AccountProof))
 	for i, p := range proof.AccountProof {
-		accountProof[i] = common.FromHex(p)
+		accountProof[i], err = hexutil.Decode(p)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
 	// Get storage proof for the slot
@@ -94,7 +97,10 @@ func (s *StorageProver) GenerateStorageProof(
 	// Convert storage proof to bytes
 	storageProof := make([][]byte, len(proof.StorageProof[0].Proof))
 	for i, p := range proof.StorageProof[0].Proof {
-		storageProof[i] = common.FromHex(p)
+		storageProof[i], err = hexutil.Decode(p)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
 	// Create an Account object using the data from the proof

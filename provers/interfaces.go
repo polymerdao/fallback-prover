@@ -99,5 +99,5 @@ type ISettledStateProver interface {
 type IRegistryProver interface {
 	GetL2Configuration(ctx context.Context, chainID uint64) (*t.L2ConfigInfo, error)
 	GetL1BlockHashOracle(ctx context.Context, chainID uint64) (common.Address, error)
-	GenerateUpdateL2ConfigArgs(ctx context.Context, chainID uint64, blockNumber *big.Int) (*t.UpdateL2ConfigArgs, error)
+	GenerateUpdateL2ConfigArgs(ctx context.Context, chainID uint64, blockNumber *big.Int, root common.Hash, addr common.Address) (*t.UpdateL2ConfigArgs, error)
 }

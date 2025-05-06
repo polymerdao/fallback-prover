@@ -3,6 +3,7 @@ package provers
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"io"
 	"math/big"
 	"os"
@@ -404,7 +405,10 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	// Convert storage proof to bytes
 	disputeFaultGameStorageProof := make([][]byte, len(disputeGameFactoryProof.StorageProof[0].Proof))
 	for i, p := range disputeGameFactoryProof.StorageProof[0].Proof {
-		disputeFaultGameStorageProof[i] = common.FromHex(p)
+		disputeFaultGameStorageProof[i], err = hexutil.Decode(p)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Create RLP encoded dispute game factory account
@@ -423,7 +427,10 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	// Convert account proof to bytes
 	disputeGameFactoryAccountProof := make([][]byte, len(disputeGameFactoryProof.AccountProof))
 	for i, p := range disputeGameFactoryProof.AccountProof {
-		disputeGameFactoryAccountProof[i] = common.FromHex(p)
+		disputeGameFactoryAccountProof[i], err = hexutil.Decode(p)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Get the root claim
@@ -520,7 +527,10 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		// Convert root claim storage proof to bytes
 		faultDisputeGameRootClaimStorageProof = make([][]byte, len(faultDisputeGameProof.StorageProof[rootClaimProofIndex].Proof))
 		for i, p := range faultDisputeGameProof.StorageProof[rootClaimProofIndex].Proof {
-			faultDisputeGameRootClaimStorageProof[i] = common.FromHex(p)
+			faultDisputeGameRootClaimStorageProof[i], err = hexutil.Decode(p)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 
@@ -542,7 +552,10 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		// Convert status storage proof to bytes
 		faultDisputeGameStatusStorageProof = make([][]byte, len(faultDisputeGameProof.StorageProof[statusProofIndex].Proof))
 		for i, p := range faultDisputeGameProof.StorageProof[statusProofIndex].Proof {
-			faultDisputeGameStatusStorageProof[i] = common.FromHex(p)
+			faultDisputeGameStatusStorageProof[i], err = hexutil.Decode(p)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 
@@ -632,7 +645,10 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	// Convert fault dispute game account proof to bytes
 	faultDisputeGameAccountProof := make([][]byte, len(faultDisputeGameProof.AccountProof))
 	for i, p := range faultDisputeGameProof.AccountProof {
-		faultDisputeGameAccountProof[i] = common.FromHex(p)
+		faultDisputeGameAccountProof[i], err = hexutil.Decode(p)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Get the messagePasserRoot corresponding to this settled L2 state

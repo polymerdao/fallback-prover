@@ -26,6 +26,7 @@ type Prover struct {
 	l2Config           *types.L2ConfigInfo
 	l1BlockHashOracle  common.Address
 	srcChainID         *big.Int
+	registryAddress    common.Address
 }
 
 // NewProver initializes a new prover with the given RPC endpoints
@@ -90,6 +91,7 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 		l2Config:           l2Config,
 		l1BlockHashOracle:  l1BlockHashOracle,
 		srcChainID:         big.NewInt(int64(conf.SrcL2ChainID)),
+		registryAddress:    conf.RegistryAddress,
 	}, nil
 }
 
@@ -168,7 +170,7 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
 
-	l2ConfigProof, err := p.registryProver.GenerateUpdateL2ConfigArgs(ctx, p.srcChainID.Uint64(), l1Header.Number)
+	l2ConfigProof, err := p.registryProver.GenerateUpdateL2ConfigArgs(ctx, p.srcChainID.Uint64(), l1Header.Number, l1Header.Root, p.registryAddress)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate L2 config proof: %w", err)
 	}
@@ -239,7 +241,7 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 		return "", fmt.Errorf("failed to get L1 origin: %w", err)
 	}
 
-	l2ConfigProof, err := p.registryProver.GenerateUpdateL2ConfigArgs(ctx, p.srcChainID.Uint64(), l1Header.Number)
+	l2ConfigProof, err := p.registryProver.GenerateUpdateL2ConfigArgs(ctx, p.srcChainID.Uint64(), l1Header.Number, l1Header.Root, p.registryAddress)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate L2 config proof: %w", err)
 	}
