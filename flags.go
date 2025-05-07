@@ -3,7 +3,6 @@ package fallback_prover
 import (
 	"fmt"
 
-	opflags "github.com/ethereum-optimism/optimism/op-service/flags"
 	"github.com/urfave/cli/v2"
 )
 
@@ -124,7 +123,7 @@ func CheckRequiredL2(ctx *cli.Context) error {
 			return fmt.Errorf("flag %s is required", f.Names()[0])
 		}
 	}
-	return opflags.CheckRequiredXor(ctx)
+	return nil
 }
 
 func CheckRequiredL1(ctx *cli.Context) error {
@@ -133,5 +132,5 @@ func CheckRequiredL1(ctx *cli.Context) error {
 			return fmt.Errorf("flag %s is required", f.Names()[0])
 		}
 	}
-	return opflags.CheckRequiredXor(ctx)
+	return nil
 }
