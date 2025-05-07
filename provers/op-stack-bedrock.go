@@ -3,6 +3,7 @@ package provers
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -10,6 +11,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/polymerdao/fallback_prover/types"
 
@@ -27,14 +30,13 @@ var _ ISettledStateProver = &OPStackBedrockProver{}
 type OPStackBedrockProver struct {
 	l1Client          IEthClient
 	l1RPC             IRPCClient
-	l2Client          IEthClient
 	l2RPC             IRPCClient
 	abi               abi.ABI
 	l2OutputOracleABI abi.ABI
 }
 
 // NewOPStackBedrockProver creates a new prover instance for OP Stack Bedrock
-func NewOPStackBedrockProver(l1Client IEthClient, l1RPC IRPCClient, l2Client IEthClient, l2RPC IRPCClient) (*OPStackBedrockProver, error) {
+func NewOPStackBedrockProver(l1Client IEthClient, l1RPC, l2RPC IRPCClient) (*OPStackBedrockProver, error) {
 	abiObj, err := getOPStackBedrockProverABI()
 	if err != nil {
 		return nil, err
@@ -48,7 +50,6 @@ func NewOPStackBedrockProver(l1Client IEthClient, l1RPC IRPCClient, l2Client IEt
 	return &OPStackBedrockProver{
 		l1Client:          l1Client,
 		l1RPC:             l1RPC,
-		l2Client:          l2Client,
 		l2RPC:             l2RPC,
 		abi:               abiObj,
 		l2OutputOracleABI: l2OutputAbiObj,
@@ -140,6 +141,19 @@ func getL2OutputOracleABI() (abi.ABI, error) {
 			],
 			"stateMutability": "view",
 			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "latestOutputIndex",
+			"outputs": [
+				{
+					"internalType": "uint256",
+					"name": "",
+					"type": "uint256"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
 		}
 	]`))
 }
@@ -186,6 +200,39 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 		return nil, nil, fmt.Errorf("invalid config: addresses or slots are empty")
 	}
 
+	// Get the storage proof for the output proposal
+	// Calculate the storage slot for the output index
+	var storageSlot common.Hash
+	if len(config.StorageSlots) > 0 {
+		// Use the storage slot from the config
+		baseSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[0]))
+		storageSlot = crypto.Keccak256Hash(
+			common.LeftPadBytes(outputIndex.Bytes(), 32),
+			common.LeftPadBytes(baseSlot.Bytes(), 32),
+		)
+	} else {
+		return nil, nil, fmt.Errorf("no storage slots provided in config")
+	}
+
+	// Get the storage proof from the L1 node
+	var proof types.StorageProofResult
+	err := p.l1RPC.CallContext(
+		ctx,
+		&proof,
+		"eth_getProof",
+		l2OutputOracleAddr.Hex(),
+		[]string{storageSlot.Hex()},
+		toBlockNumArg(l1BlockNumber))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get output oracle proof: %w", err)
+	}
+
+	// process the eth_getProof result
+	l1StorageProof, rlpEncodedOutputOracleData, l1AccountProof, err := processAccountAndProofs(&proof)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to process account and proofs: %w", err)
+	}
+
 	l2OutputData, err := p.l2OutputOracleABI.Pack("getL2Output", outputIndex)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to pack getL2Output: %w", err)
@@ -199,6 +246,7 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 		return nil, nil, fmt.Errorf("failed to call getL2Output: %w", err)
 	}
 
+	// process the eth_call result
 	// OutputProposal struct has 3 fields: outputRoot, timestamp, l2BlockNumber
 	type OutputProposal struct {
 		OutputRoot    common.Hash
@@ -208,7 +256,7 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	// First try to unpack directly into a struct
 	var outputProposal OutputProposal
 
-	// If the direct unpack fails, try the byte-by-byte approach
+	// Try the byte-by-byte approach
 	if len(l2OutputResult) >= 96 { // 32 bytes for outputRoot, 32 bytes for timestamp, 32 bytes for l2BlockNumber
 		copy(outputProposal.OutputRoot[:], l2OutputResult[:32])
 		outputProposal.Timestamp = new(big.Int).SetBytes(l2OutputResult[32:64])
@@ -220,77 +268,52 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 		}
 	}
 
-	l2Block, err := p.l2Client.BlockByNumber(ctx, outputProposal.L2BlockNumber) // nil means latest block
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get latest L2 block: %w", err)
+	var rawHeader json.RawMessage
+	l2BlockElem := rpc.BatchElem{
+		Method: "eth_getBlockByNumber",
+		Args: []interface{}{
+			toBlockNumArg(outputProposal.L2BlockNumber),
+			false,
+		},
+		Result: &rawHeader,
+		Error:  nil,
+	}
+	// Use eth_getProof to get L2toL1MessagePasser info at the L2 output height
+	var rawL2Proof json.RawMessage
+	msgPsrProofElem := rpc.BatchElem{
+		Method: "eth_getProof",
+		Args: []interface{}{
+			L2MessagePasserAddress.Hex(),
+			[]string{},
+			toBlockNumArg(outputProposal.L2BlockNumber),
+		},
+		Result: &rawL2Proof,
+		Error:  nil,
+	}
+	l2BatchElems := []rpc.BatchElem{l2BlockElem, msgPsrProofElem}
+	if err := p.l2RPC.BatchCallContext(ctx, l2BatchElems); err != nil {
+		return nil, nil, fmt.Errorf("failed to batch call: %w", err)
+	}
+	for _, elem := range l2BatchElems {
+		if elem.Error != nil {
+			return nil, nil, fmt.Errorf("l2 RPC batch request error for method %s: %w", elem.Method, elem.Error)
+		}
+		if elem.Result == nil {
+			return nil, nil, fmt.Errorf("l2 RPC batch request result is nil for method %s", elem.Method)
+		}
 	}
 
-	// Use eth_getProof to get L2toL1MessagePasser info at the L2 output height
+	var l2Header types2.Header
+	if err := json.Unmarshal(rawHeader, &l2Header); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal L2 block header: %w", err)
+	}
 	var messagePasserProof types.StorageProofResult
-	// Empty array for storage keys - we only need the account proof with storageHash
-	err = p.l2RPC.CallContext(
-		ctx,
-		&messagePasserProof,
-		"eth_getProof",
-		L2MessagePasserAddress.Hex(),
-		[]string{}, // No specific storage keys needed, we just want the storageHash
-		toBlockNumArg(outputProposal.L2BlockNumber),
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get message passer proof: %w", err)
+	if err := json.Unmarshal(rawL2Proof, &messagePasserProof); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal message passer proof: %w", err)
 	}
 
 	// The storageHash from the proof is the L2ToL1MessagePasser root we need
 	messagePasserRoot := messagePasserProof.StorageHash
-
-	// Get the storage proof for the output proposal
-	// Calculate the storage slot for the output index
-	var storageSlot common.Hash
-	if len(config.StorageSlots) > 0 {
-		// Use the storage slot from the config
-		baseSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[0])))
-		storageSlot = crypto.Keccak256Hash(
-			common.LeftPadBytes(outputIndex.Bytes(), 32),
-			common.LeftPadBytes(baseSlot.Bytes(), 32),
-		)
-	} else {
-		return nil, nil, fmt.Errorf("no storage slots provided in config")
-	}
-
-	// Get the storage proof from the L1 node
-	var proof types.StorageProofResult
-	err = p.l1RPC.CallContext(
-		ctx,
-		&proof,
-		"eth_getProof",
-		l2OutputOracleAddr.Hex(),
-		[]string{storageSlot.Hex()},
-		toBlockNumArg(l1BlockNumber))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get output oracle proof: %w", err)
-	}
-
-	l1StorageProof := make([][]byte, len(proof.StorageProof[0].Proof))
-	for i, p := range proof.StorageProof[0].Proof {
-		l1StorageProof[i] = common.FromHex(p)
-	}
-
-	account := Account{
-		Nonce:    uint64(*proof.Nonce),
-		Balance:  proof.Balance.ToInt(),
-		Root:     proof.StorageHash,
-		CodeHash: proof.CodeHash.Bytes(),
-	}
-
-	rlpEncodedOutputOracleData, err := rlp.EncodeToBytes(account)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to RLP encode account: %w", err)
-	}
-
-	l1AccountProof := make([][]byte, len(proof.AccountProof))
-	for i, p := range proof.AccountProof {
-		l1AccountProof[i] = common.FromHex(p)
-	}
 
 	outputIndexBytes := make([]byte, 32)
 	binary.BigEndian.PutUint64(outputIndexBytes[24:32], outputIndex.Uint64())
@@ -310,5 +333,31 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 		return nil, nil, fmt.Errorf("failed to RLP encode settled state proof: %w", err)
 	}
 
-	return settledStateProof, l2Block.Header(), nil
+	return settledStateProof, &l2Header, nil
+}
+
+func processAccountAndProofs(proof *types.StorageProofResult) ([][]byte, []byte, [][]byte, error) {
+	l1StorageProof := make([][]byte, len(proof.StorageProof[0].Proof))
+	for i, p := range proof.StorageProof[0].Proof {
+		l1StorageProof[i] = common.FromHex(p)
+	}
+
+	account := Account{
+		Nonce:    uint64(*proof.Nonce),
+		Balance:  proof.Balance.ToInt(),
+		Root:     proof.StorageHash,
+		CodeHash: proof.CodeHash.Bytes(),
+	}
+
+	rlpEncodedOutputOracleData, err := rlp.EncodeToBytes(account)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to RLP encode account: %w", err)
+	}
+
+	l1AccountProof := make([][]byte, len(proof.AccountProof))
+	for i, p := range proof.AccountProof {
+		l1AccountProof[i] = common.FromHex(p)
+	}
+
+	return l1StorageProof, rlpEncodedOutputOracleData, l1AccountProof, nil
 }

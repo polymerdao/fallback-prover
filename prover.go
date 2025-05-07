@@ -44,7 +44,6 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to source L2 RPC: %w", err)
 	}
-	srcL2Client := ethclient.NewClient(srcL2RPC)
 
 	// Set up destination L2 clients
 	dstL2RPC, err := rpc.Dial(conf.DstL2RPC)
@@ -75,12 +74,12 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 
 	var settledStateProver provers.ISettledStateProver
 	if l2Config.ConfigType == "OPStackBedrock" {
-		settledStateProver, err = provers.NewOPStackBedrockProver(l1Client, l1RPC, srcL2Client, srcL2RPC)
+		settledStateProver, err = provers.NewOPStackBedrockProver(l1Client, l1RPC, srcL2RPC)
 		if err != nil {
 			return nil, err
 		}
 	} else if l2Config.ConfigType == "OPStackCannon" {
-		settledStateProver, err = provers.NewOPStackCannonProver(l1Client, l1RPC, srcL2Client, srcL2RPC)
+		settledStateProver, err = provers.NewOPStackCannonProver(l1Client, l1RPC, srcL2RPC)
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +94,7 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 
 	return &Prover{
 		l1OriginProver:     provers.NewL1OriginProver(l1Client, dstL2Client),
-		l2StorageProver:    provers.NewStorageProver(srcL2Client, srcL2RPC),
+		l2StorageProver:    provers.NewStorageProver(ethclient.NewClient(srcL2RPC), srcL2RPC),
 		nativeProver:       nativeProver,
 		settledStateProver: settledStateProver,
 		l2Config:           l2Config,

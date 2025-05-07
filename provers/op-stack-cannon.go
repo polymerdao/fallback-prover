@@ -2,6 +2,7 @@ package provers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -9,6 +10,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/rpc"
 
 	types2 "github.com/ethereum/go-ethereum/core/types"
 
@@ -28,7 +31,6 @@ var _ ISettledStateProver = &OPStackCannonProver{}
 type OPStackCannonProver struct {
 	l1Client   IEthClient
 	l1RPC      IRPCClient
-	l2Client   IEthClient
 	l2RPC      IRPCClient
 	abi        abi.ABI
 	factoryABI abi.ABI
@@ -36,7 +38,7 @@ type OPStackCannonProver struct {
 }
 
 // NewOPStackCannonProver creates a new prover instance for OP Stack Cannon
-func NewOPStackCannonProver(l1Client IEthClient, l1RPC IRPCClient, l2Client IEthClient, l2RPC IRPCClient) (*OPStackCannonProver, error) {
+func NewOPStackCannonProver(l1Client IEthClient, l1RPC, l2RPC IRPCClient) (*OPStackCannonProver, error) {
 	abiObj, err := getOPStackCannonProverABI()
 	if err != nil {
 		return nil, err
@@ -55,7 +57,6 @@ func NewOPStackCannonProver(l1Client IEthClient, l1RPC IRPCClient, l2Client IEth
 	return &OPStackCannonProver{
 		l1Client:   l1Client,
 		l1RPC:      l1RPC,
-		l2Client:   l2Client,
 		l2RPC:      l2RPC,
 		abi:        abiObj,
 		factoryABI: factoryAbiObj,
@@ -302,15 +303,12 @@ func (p *OPStackCannonProver) FindLatestResolved(ctx context.Context, config *ty
 	if len(gameCountResult) == 32 {
 		gameCount = new(big.Int).SetBytes(gameCountResult)
 		log.Debug("Parsed gameCount from bytes", "count", gameCount, "len", len(gameCountResult), "bytes", fmt.Sprintf("%x", gameCountResult))
-	} else if len(gameCountResult) > 0 {
-		// If we have non-empty data but not 32 bytes, try ABI unpacking
-		if err := p.factoryABI.UnpackIntoInterface(&gameCount, "gameCount", gameCountResult); err != nil {
-			log.Debug("Failed to unpack gameCount", "error", err, "resultLen", len(gameCountResult), "data", fmt.Sprintf("%x", gameCountResult))
-			return nil, common.Address{}, fmt.Errorf("failed to unpack game count: %w", err)
-		}
 	} else {
 		log.Debug("Received empty gameCountResult", "len", len(gameCountResult))
 		return nil, common.Address{}, fmt.Errorf("empty game count result from contract")
+	}
+	if gameCount.Cmp(big.NewInt(0)) <= 0 {
+		return nil, common.Address{}, fmt.Errorf("invalid game count %s", gameCount.String())
 	}
 
 	// Find the latest resolved dispute game with a valid L2 output
@@ -389,56 +387,64 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 
 	// Get addresses and slots from the config
 	disputeGameFactoryAddr := config.Addresses[0]
-	disputeGameFactoryListSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[0])))
-	faultDisputeGameRootClaimSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[1])))
-	faultDisputeGameStatusSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[2])))
+	disputeGameFactoryListSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[0]))
+	faultDisputeGameRootClaimSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[1]))
+	faultDisputeGameStatusSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[2]))
 
 	log.Debug("Using game", "index", gameIndex, "address", gameAddress.Hex())
 
-	// Step 5: Get storage proof for the dispute game factory
+	// Get storage proof for the dispute game factory
 	// Calculate the storage slot for the game index
 	gameIndexSlot := crypto.Keccak256Hash(
 		common.LeftPadBytes(gameIndex.Bytes(), 32),
 		common.LeftPadBytes(disputeGameFactoryListSlot.Bytes(), 32),
 	)
 
-	// Get the storage proof from L1 for the dispute game factory
+	var rawFactoryProof json.RawMessage
+	factoryProofElem := rpc.BatchElem{
+		Method: "eth_getProof",
+		Args: []interface{}{
+			disputeGameFactoryAddr.Hex(),
+			[]string{gameIndexSlot.Hex()},
+			toBlockNumArg(l1BlockNumber),
+		},
+		Result: &rawFactoryProof,
+		Error:  nil,
+	}
+
+	// Get the storage proofs from L1 for the fault dispute game
+	var rawGameProof json.RawMessage
+	gameProofElem := rpc.BatchElem{
+		Method: "eth_getProof",
+		Args: []interface{}{
+			gameAddress.Hex(),
+			[]string{faultDisputeGameRootClaimSlot.Hex(), faultDisputeGameStatusSlot.Hex()},
+			toBlockNumArg(l1BlockNumber),
+		},
+		Result: &rawGameProof,
+		Error:  nil,
+	}
+
+	l1BatchElems := []rpc.BatchElem{factoryProofElem, gameProofElem}
+	if err := p.l1RPC.BatchCallContext(ctx, l1BatchElems); err != nil {
+		return nil, nil, fmt.Errorf("failed to batch call: %w", err)
+	}
+	for _, elem := range l1BatchElems {
+		if elem.Error != nil {
+			return nil, nil, fmt.Errorf("l1 RPC batch request error for method %s: %w", elem.Method, elem.Error)
+		}
+		if elem.Result == nil {
+			return nil, nil, fmt.Errorf("l1 RPC batch request result is nil for method %s", elem.Method)
+		}
+	}
+
+	var faultDisputeGameProof types.StorageProofResult
+	if err := json.Unmarshal(rawGameProof, &faultDisputeGameProof); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal game proof: %w", err)
+	}
 	var disputeGameFactoryProof types.StorageProofResult
-	err := p.l1RPC.CallContext(
-		ctx,
-		&disputeGameFactoryProof,
-		"eth_getProof",
-		disputeGameFactoryAddr.Hex(),
-		[]string{gameIndexSlot.Hex()},
-		toBlockNumArg(l1BlockNumber), // Use the provided L1 block number
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get dispute game factory proof: %w", err)
-	}
-
-	// Convert storage proof to bytes
-	disputeFaultGameStorageProof := make([][]byte, len(disputeGameFactoryProof.StorageProof[0].Proof))
-	for i, p := range disputeGameFactoryProof.StorageProof[0].Proof {
-		disputeFaultGameStorageProof[i] = common.FromHex(p)
-	}
-
-	// Create RLP encoded dispute game factory account
-	disputeGameFactoryAccount := Account{
-		Nonce:    uint64(*disputeGameFactoryProof.Nonce),
-		Balance:  disputeGameFactoryProof.Balance.ToInt(),
-		Root:     disputeGameFactoryProof.StorageHash,
-		CodeHash: disputeGameFactoryProof.CodeHash.Bytes(),
-	}
-
-	rlpEncodedDisputeGameFactoryData, err := rlp.EncodeToBytes(disputeGameFactoryAccount)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to RLP encode dispute game factory account: %w", err)
-	}
-
-	// Convert account proof to bytes
-	disputeGameFactoryAccountProof := make([][]byte, len(disputeGameFactoryProof.AccountProof))
-	for i, p := range disputeGameFactoryProof.AccountProof {
-		disputeGameFactoryAccountProof[i] = common.FromHex(p)
+	if err := json.Unmarshal(rawFactoryProof, &disputeGameFactoryProof); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal factory proof: %w", err)
 	}
 
 	// Get the l2BlockNumber
@@ -455,35 +461,52 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		return nil, nil, fmt.Errorf("failed to call l2BlockNumber: %w", err)
 	}
 
+	// Get createdAt timestamp
+	createdAtData, err := p.gameABI.Pack("createdAt")
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to pack createdAt call: %w", err)
+	}
+
+	createdAtResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
+		To:   &gameAddress,
+		Data: createdAtData,
+	}, l1BlockNumber)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to call createdAt: %w", err)
+	}
+
+	// Get resolvedAt timestamp
+	resolvedAtData, err := p.gameABI.Pack("resolvedAt")
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to pack resolvedAt call: %w", err)
+	}
+
+	resolvedAtResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
+		To:   &gameAddress,
+		Data: resolvedAtData,
+	}, l1BlockNumber)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to call resolvedAt: %w", err)
+	}
+
+	// Convert storage proof to bytes
+	disputeFaultGameStorageProof, rlpEncodedDisputeGameFactoryData, disputeGameFactoryAccountProof, err := processAccountAndProofs(&disputeGameFactoryProof)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to process account and proofs: %w", err)
+	}
+
 	// Decode the L2 block number result
 	var l2BlockNumber *big.Int
 	if len(l2BlockNumberResult) == 32 {
 		// For uint256 values, we can directly convert the 32 bytes to a big.Int
 		l2BlockNumber = new(big.Int).SetBytes(l2BlockNumberResult)
 		log.Debug("Parsed L2 block number from bytes", "blockNumber", l2BlockNumber.Uint64(), "len", len(l2BlockNumberResult))
-	} else if len(l2BlockNumberResult) > 0 {
-		// Try to unpack via ABI - this handles ABI-encoded data
-		if err := p.gameABI.UnpackIntoInterface(&l2BlockNumber, "l2BlockNumber", l2BlockNumberResult); err != nil {
-			log.Debug("Failed to unpack L2 block number", "error", err, "resultLen", len(l2BlockNumberResult), "data", fmt.Sprintf("%x", l2BlockNumberResult))
-			return nil, nil, fmt.Errorf("failed to unpack L2 block number: %w", err)
-		}
 	} else {
 		log.Debug("Received empty L2 block number result", "len", len(l2BlockNumberResult))
 		return nil, nil, fmt.Errorf("empty L2 block number result from contract")
 	}
-
-	// Get the storage proofs from L1 for the fault dispute game
-	var faultDisputeGameProof types.StorageProofResult
-	err = p.l1RPC.CallContext(
-		ctx,
-		&faultDisputeGameProof,
-		"eth_getProof",
-		gameAddress.Hex(),
-		[]string{faultDisputeGameRootClaimSlot.Hex(), faultDisputeGameStatusSlot.Hex()},
-		toBlockNumArg(l1BlockNumber),
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get fault dispute game proof: %w", err)
+	if l2BlockNumber.Cmp(big.NewInt(0)) <= 0 {
+		return nil, nil, fmt.Errorf("invalid l2 block number %s", l2BlockNumber.String())
 	}
 
 	// Process root claim proof
@@ -533,21 +556,6 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	// Create fault dispute game state root
 	faultDisputeGameStateRoot := faultDisputeGameProof.StorageHash
 
-	// Extract real timestamps and state from the fault dispute game contract
-	// Get createdAt timestamp
-	createdAtData, err := p.gameABI.Pack("createdAt")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to pack createdAt call: %w", err)
-	}
-
-	createdAtResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
-		To:   &gameAddress,
-		Data: createdAtData,
-	}, l1BlockNumber)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to call createdAt: %w", err)
-	}
-
 	var createdAt uint64
 	if len(createdAtResult) >= 8 {
 		// Parse as uint64 from the last 8 bytes
@@ -556,19 +564,8 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	} else {
 		return nil, nil, fmt.Errorf("invalid createdAt result")
 	}
-
-	// Get resolvedAt timestamp
-	resolvedAtData, err := p.gameABI.Pack("resolvedAt")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to pack resolvedAt call: %w", err)
-	}
-
-	resolvedAtResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
-		To:   &gameAddress,
-		Data: resolvedAtData,
-	}, l1BlockNumber)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to call resolvedAt: %w", err)
+	if createdAt <= 0 {
+		return nil, nil, fmt.Errorf("invalid createdAt %d", createdAt)
 	}
 
 	var resolvedAt uint64
@@ -578,6 +575,9 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		log.Debug("Parsed resolvedAt", "timestamp", resolvedAt)
 	} else {
 		return nil, nil, fmt.Errorf("invalid resolvedAt result")
+	}
+	if resolvedAt <= 0 {
+		return nil, nil, fmt.Errorf("invalid resolvedAt %d", resolvedAt)
 	}
 
 	// Create the status data structure with real values from the contract
@@ -623,27 +623,56 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	messagePasserAddr := common.HexToAddress(CannonL2MessagePasserAddress)
 
 	// Get the storage root (storageHash) of the L2ToL1MessagePasser contract
-	var messagePasserProof types.StorageProofResult
-	err = p.l2RPC.CallContext(
-		ctx,
-		&messagePasserProof,
-		"eth_getProof",
-		messagePasserAddr.Hex(),
-		[]string{}, // No specific storage keys needed, we only want account info
-		toBlockNumArg(l2BlockNumber),
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get message passer proof: %w", err)
+	var rawL2Proof json.RawMessage
+	messagePasserProofElem := rpc.BatchElem{
+		Method: "eth_getProof",
+		Args: []interface{}{
+			messagePasserAddr.Hex(),
+			[]string{}, // No specific storage keys needed, we only want account info
+			toBlockNumArg(l2BlockNumber),
+		},
+		Result: &rawL2Proof,
+		Error:  nil,
 	}
-	messagePasserRoot := messagePasserProof.StorageHash
 
 	// Get the blockhash for this height
-	l2Block, err := p.l2Client.BlockByNumber(ctx, l2BlockNumber)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get L2 block header: %w", err)
+	var rawHeader json.RawMessage
+	l2BlockElem := rpc.BatchElem{
+		Method: "eth_getBlockByNumber",
+		Args: []interface{}{
+			toBlockNumArg(l2BlockNumber),
+			false,
+		},
+		Result: &rawHeader,
+		Error:  nil,
 	}
 
-	// Step 8: Package everything together
+	l2BatchElems := []rpc.BatchElem{l2BlockElem, messagePasserProofElem}
+	if err := p.l2RPC.BatchCallContext(ctx, l2BatchElems); err != nil {
+		return nil, nil, fmt.Errorf("failed to batch call: %w", err)
+	}
+	for _, elem := range l2BatchElems {
+		if elem.Error != nil {
+			return nil, nil, fmt.Errorf("l2 RPC batch request error for method %s: %w", elem.Method, elem.Error)
+		}
+		if elem.Result == nil {
+			return nil, nil, fmt.Errorf("l2 RPC batch request result is nil for method %s", elem.Method)
+		}
+	}
+
+	var l2Header types2.Header
+	if err := json.Unmarshal(rawHeader, &l2Header); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal L2 block header: %w", err)
+	}
+
+	var messagePasserProof types.StorageProofResult
+	if err := json.Unmarshal(rawL2Proof, &messagePasserProof); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal message passer proof: %w", err)
+	}
+
+	messagePasserRoot := messagePasserProof.StorageHash
+
+	// Package everything together
 	// Format for OPStackCannonSettledStateProof:
 	// [
 	//   DisputeGameFactoryProofData,
@@ -653,7 +682,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	// DisputeGameFactoryProofData:
 	disputeGameFactoryProofData := []interface{}{
 		messagePasserRoot,
-		l2Block.Hash(),
+		l2Header.Hash(),
 		gameIndex.Uint64(),
 		constructGameID(0, createdAt, gameAddress), // Construct proper GameID with type 0 (fault), creation timestamp, and address
 		disputeFaultGameStorageProof,
@@ -683,5 +712,5 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		return nil, nil, fmt.Errorf("failed to RLP encode settled state proof: %w", err)
 	}
 
-	return settledStateProof, l2Block.Header(), nil
+	return settledStateProof, &l2Header, nil
 }

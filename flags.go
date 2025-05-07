@@ -65,7 +65,7 @@ var (
 		Usage: "Wait for a new L2 epoch before constructing proof if true." +
 			"Useful to avoid race condition with L1 blockhash oracle changing",
 		EnvVars: prefixEnvVars("WAIT_FOR_NEW_EPOCH"),
-		Value:   true,
+		Value:   false,
 	}
 	EpochPollingFreq = &cli.UintFlag{
 		Name:    "epoch-polling-freq",

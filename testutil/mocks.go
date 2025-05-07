@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,12 +42,20 @@ func (m *MockEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*ty
 
 // MockRPCClient is a mock implementation of the IRPCClient for testing
 type MockRPCClient struct {
-	CallContextFunc func(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	CallContextFunc      func(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	BatchCallContextFunc func(ctx context.Context, b []rpc.BatchElem) error
 }
 
 func (m *MockRPCClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	if m.CallContextFunc != nil {
 		return m.CallContextFunc(ctx, result, method, args...)
+	}
+	return nil
+}
+
+func (m *MockRPCClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	if m.BatchCallContextFunc != nil {
+		return m.BatchCallContextFunc(ctx, b)
 	}
 	return nil
 }
