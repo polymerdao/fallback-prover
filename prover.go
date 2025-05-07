@@ -106,8 +106,8 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 	}, nil
 }
 
-// GenerateProveCalldata generates the calldata for the NativeProver.prove() function
-func (p *Prover) GenerateProveCalldata(
+// GenerateProveNativeCalldata generates the calldata for the NativeProver.proveNative() function
+func (p *Prover) GenerateProveNativeCalldata(
 	ctx context.Context,
 	params *ProveParams,
 ) (string, error) {
@@ -142,7 +142,7 @@ func (p *Prover) GenerateProveCalldata(
 		return "", fmt.Errorf("failed to generate storage proof: %w", err)
 	}
 
-	// Create ProveScalarArgs for the Prove call
+	// Create ProveScalarArgs for the proveNative call
 	proveArgs := types.ProveScalarArgs{
 		ChainID:          p.srcChainID,
 		ContractAddr:     params.Address,
@@ -156,74 +156,7 @@ func (p *Prover) GenerateProveCalldata(
 		return "", fmt.Errorf("failed to encode L2 header: %w", err)
 	}
 
-	calldata, err := p.nativeProver.EncodeProveCalldata(
-		proveArgs,
-		rlpEncodedL1Header,
-		rlpEncodedL2Header,
-		settledStateProof,
-		l2StorageProof,
-		rlpEncodedContractAccount,
-		l2AccountProof,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to pack calldata: %w", err)
-	}
-
-	// Return the calldata as a hex string
-	return "0x" + common.Bytes2Hex(calldata), nil
-}
-
-// GenerateUpdateAndProveCalldata generates the calldata for the NativeProver.updateAndProve() function
-func (p *Prover) GenerateUpdateAndProveCalldata(
-	ctx context.Context,
-	params *ProveParams,
-) (string, error) {
-	rlpEncodedL1Header, l1Header, err := p.GetL1Origin(ctx, params)
-	if err != nil {
-		return "", fmt.Errorf("failed to get L1 origin: %w", err)
-	}
-
-	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
-		ctx,
-		l1Header.Number,
-		p.gameIndex,
-		p.rootAddress,
-		p.l2Config)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
-	}
-
-	result, err := p.l2StorageProver.GetStorageAt(ctx, params.Address, params.StorageSlot, l2Header.Number)
-	if err != nil {
-		return "", fmt.Errorf("failed to get storage value: %w", err)
-	}
-	storageValue := common.HexToHash(result)
-
-	l2StorageProof, rlpEncodedContractAccount, l2AccountProof, err := p.l2StorageProver.GenerateStorageProof(
-		ctx,
-		params.Address,
-		params.StorageSlot,
-		l2Header.Root,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate storage proof: %w", err)
-	}
-
-	// Create ProveScalarArgs for the updateAndProve call
-	proveArgs := types.ProveScalarArgs{
-		ChainID:          p.srcChainID,
-		ContractAddr:     params.Address,
-		StorageSlot:      params.StorageSlot,
-		StorageValue:     storageValue,
-		L2WorldStateRoot: l2Header.Root,
-	}
-
-	rlpEncodedL2Header, err := rlp.EncodeToBytes(l2Header)
-	if err != nil {
-		return "", fmt.Errorf("failed to encode L2 header: %w", err)
-	}
-
-	calldata, err := p.nativeProver.EncodeUpdateAndProveCalldata(
+	calldata, err := p.nativeProver.EncodeProveNativeCalldata(
 		*p.configProof,
 		proveArgs,
 		rlpEncodedL1Header,
@@ -234,75 +167,7 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 		l2AccountProof,
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to pack updateAndProve calldata: %w", err)
-	}
-
-	// Return the calldata as a hex string
-	return "0x" + common.Bytes2Hex(calldata), nil
-}
-
-// GenerateConfigureAndProveCalldata generates the calldata for the NativeProver.configureAndProve() function
-func (p *Prover) GenerateConfigureAndProveCalldata(
-	ctx context.Context,
-	params *ProveParams,
-) (string, error) {
-	rlpEncodedL1Header, l1Header, err := p.GetL1Origin(ctx, params)
-	if err != nil {
-		return "", fmt.Errorf("failed to get L1 origin: %w", err)
-	}
-
-	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
-		ctx,
-		l1Header.Number,
-		p.gameIndex,
-		p.rootAddress,
-		p.l2Config)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
-	}
-
-	result, err := p.l2StorageProver.GetStorageAt(ctx, params.Address, params.StorageSlot, l2Header.Number)
-	if err != nil {
-		return "", fmt.Errorf("failed to get storage value: %w", err)
-	}
-	storageValue := common.HexToHash(result)
-
-	l2StorageProof, rlpEncodedContractAccount, l2AccountProof, err := p.l2StorageProver.GenerateStorageProof(
-		ctx,
-		params.Address,
-		params.StorageSlot,
-		l2Header.Root,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate storage proof: %w", err)
-	}
-
-	// Create ProveScalarArgs for the configureAndProve call
-	proveArgs := types.ProveScalarArgs{
-		ChainID:          p.srcChainID,
-		ContractAddr:     params.Address,
-		StorageSlot:      params.StorageSlot,
-		StorageValue:     storageValue,
-		L2WorldStateRoot: l2Header.Root,
-	}
-
-	rlpEncodedL2Header, err := rlp.EncodeToBytes(l2Header)
-	if err != nil {
-		return "", fmt.Errorf("failed to encode L2 header: %w", err)
-	}
-
-	calldata, err := p.nativeProver.EncodeConfigureAndProveCalldata(
-		*p.configProof,
-		proveArgs,
-		rlpEncodedL1Header,
-		rlpEncodedL2Header,
-		settledStateProof,
-		l2StorageProof,
-		rlpEncodedContractAccount,
-		l2AccountProof,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to pack configureAndProve calldata: %w", err)
+		return "", fmt.Errorf("failed to pack proveNative calldata: %w", err)
 	}
 
 	// Return the calldata as a hex string

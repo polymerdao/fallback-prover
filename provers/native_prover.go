@@ -12,6 +12,8 @@ import (
 	t "github.com/polymerdao/fallback_prover/types"
 )
 
+var _ INativeProver = &NativeProver{}
+
 // NativeProver is responsible for encoding the calldata for the prove function
 type NativeProver struct {
 	abi abi.ABI
@@ -57,31 +59,8 @@ func getNativeProverABI() (abi.ABI, error) {
 	return parsedABI, nil
 }
 
-// EncodeProveCalldata encodes the parameters for the NativeProver.prove() function call
-func (np *NativeProver) EncodeProveCalldata(
-	proveArgs t.ProveScalarArgs,
-	rlpEncodedL1Header []byte,
-	rlpEncodedL2Header []byte,
-	settledStateProof []byte,
-	l2StorageProof [][]byte,
-	rlpEncodedContractAccount []byte,
-	l2AccountProof [][]byte,
-) ([]byte, error) {
-	// Pack the arguments for the prove function
-	return np.abi.Pack(
-		"prove",
-		proveArgs,
-		rlpEncodedL1Header,
-		rlpEncodedL2Header,
-		settledStateProof,
-		l2StorageProof,
-		rlpEncodedContractAccount,
-		l2AccountProof,
-	)
-}
-
-// EncodeUpdateAndProveCalldata encodes the parameters for the NativeProver.updateAndProve() function call
-func (np *NativeProver) EncodeUpdateAndProveCalldata(
+// EncodeProveNativeCalldata encodes the parameters for the NativeProver.proveNative() function call
+func (np *NativeProver) EncodeProveNativeCalldata(
 	updateArgs t.UpdateL2ConfigArgs,
 	proveArgs t.ProveScalarArgs,
 	rlpEncodedL1Header []byte,
@@ -92,7 +71,7 @@ func (np *NativeProver) EncodeUpdateAndProveCalldata(
 	l2AccountProof [][]byte,
 ) ([]byte, error) {
 	return np.abi.Pack(
-		"updateAndProve",
+		"proveNative",
 		updateArgs,
 		proveArgs,
 		rlpEncodedL1Header,
@@ -104,32 +83,8 @@ func (np *NativeProver) EncodeUpdateAndProveCalldata(
 	)
 }
 
-// EncodeConfigureAndProveCalldata encodes the parameters for the NativeProver.configureAndProve() function call
-func (np *NativeProver) EncodeConfigureAndProveCalldata(
-	updateArgs t.UpdateL2ConfigArgs,
-	proveArgs t.ProveScalarArgs,
-	rlpEncodedL1Header []byte,
-	rlpEncodedL2Header []byte,
-	settledStateProof []byte,
-	l2StorageProof [][]byte,
-	rlpEncodedContractAccount []byte,
-	l2AccountProof [][]byte,
-) ([]byte, error) {
-	return np.abi.Pack(
-		"configureAndProve",
-		updateArgs,
-		proveArgs,
-		rlpEncodedL1Header,
-		rlpEncodedL2Header,
-		settledStateProof,
-		l2StorageProof,
-		rlpEncodedContractAccount,
-		l2AccountProof,
-	)
-}
-
-// EncodeProveL1Calldata encodes the parameters for the NativeProver.proveL1() function call
-func (np *NativeProver) EncodeProveL1Calldata(
+// EncodeProveL1NativeCalldata encodes the parameters for the NativeProver.proveL1Native() function call
+func (np *NativeProver) EncodeProveL1NativeCalldata(
 	proveArgs t.ProveL1ScalarArgs,
 	rlpEncodedL1Header []byte,
 	l1StorageProof [][]byte,
@@ -137,7 +92,7 @@ func (np *NativeProver) EncodeProveL1Calldata(
 	l1AccountProof [][]byte,
 ) ([]byte, error) {
 	return np.abi.Pack(
-		"proveL1",
+		"proveL1Native",
 		proveArgs,
 		rlpEncodedL1Header,
 		l1StorageProof,

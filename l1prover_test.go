@@ -94,10 +94,10 @@ func TestL1Prover_GenerateProveL1Calldata(t *testing.T) {
 	unpackedMap := make(map[string]interface{})
 
 	// Use UnpackIntoMap to decode the calldata
-	err = nativeProverABI.Methods["proveL1"].Inputs.UnpackIntoMap(unpackedMap, hexCalldata[4:])
+	err = nativeProverABI.Methods["proveL1Native"].Inputs.UnpackIntoMap(unpackedMap, hexCalldata[4:])
 	if err != nil {
 		t.Logf("Failed to unpack calldata: %v", err)
-		t.Logf("This could be because the ABI doesn't have a proveL1 method defined yet")
+		t.Logf("This could be because the ABI doesn't have a proveL1Native method defined yet")
 
 		// Log available methods
 		t.Logf("Available methods in ABI:")

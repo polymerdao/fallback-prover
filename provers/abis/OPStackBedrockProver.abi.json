@@ -125,6 +125,48 @@
   },
   {
     "type": "error",
+    "name": "InvalidBedrockProof",
+    "inputs": [
+      {
+        "name": "_l2WorldStateRoot",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_l1WorldStateRoot",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidStorageProof",
+    "inputs": [
+      {
+        "name": "_key",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_val",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_proof",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "_root",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidStorageProof",
     "inputs": [
       {

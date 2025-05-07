@@ -42,18 +42,7 @@ type IStorageProver interface {
 }
 
 type INativeProver interface {
-	EncodeProveCalldata(
-		proveArgs t.ProveScalarArgs,
-		rlpEncodedL1Header []byte,
-		rlpEncodedL2Header []byte,
-		settledStateProof []byte,
-		l2StorageProof [][]byte,
-		rlpEncodedContractAccount []byte,
-		l2AccountProof [][]byte,
-	) ([]byte, error)
-
-	// Added methods for the new contract functions
-	EncodeUpdateAndProveCalldata(
+	EncodeProveNativeCalldata(
 		updateArgs t.UpdateL2ConfigArgs,
 		proveArgs t.ProveScalarArgs,
 		rlpEncodedL1Header []byte,
@@ -64,18 +53,7 @@ type INativeProver interface {
 		l2AccountProof [][]byte,
 	) ([]byte, error)
 
-	EncodeConfigureAndProveCalldata(
-		updateArgs t.UpdateL2ConfigArgs,
-		proveArgs t.ProveScalarArgs,
-		rlpEncodedL1Header []byte,
-		rlpEncodedL2Header []byte,
-		settledStateProof []byte,
-		l2StorageProof [][]byte,
-		rlpEncodedContractAccount []byte,
-		l2AccountProof [][]byte,
-	) ([]byte, error)
-
-	EncodeProveL1Calldata(
+	EncodeProveL1NativeCalldata(
 		proveArgs t.ProveL1ScalarArgs,
 		rlpEncodedL1Header []byte,
 		l1StorageProof [][]byte,
