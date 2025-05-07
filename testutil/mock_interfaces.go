@@ -104,24 +104,40 @@ func (m *MockStorageProver) GenerateStorageProof(ctx context.Context, contractAd
 
 // MockOPStackBedrockProver is a mock implementation of the provers.ISettledStateProver interface
 type MockOPStackBedrockProver struct {
-	GenerateSettledStateProofFunc func(ctx context.Context, l1BlockNumber *big.Int, config *t.L2ConfigInfo) ([]byte, *types.Header, error)
+	FindLatestResolvedFunc        func(ctx context.Context, config *t.L2ConfigInfo) (*big.Int, common.Address, error)
+	GenerateSettledStateProofFunc func(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *t.L2ConfigInfo) ([]byte, *types.Header, error)
 }
 
-func (m *MockOPStackBedrockProver) GenerateSettledStateProof(ctx context.Context, l1BlockNumber *big.Int, config *t.L2ConfigInfo) ([]byte, *types.Header, error) {
+func (m *MockOPStackBedrockProver) FindLatestResolved(ctx context.Context, config *t.L2ConfigInfo) (*big.Int, common.Address, error) {
+	if m.FindLatestResolvedFunc != nil {
+		return m.FindLatestResolvedFunc(ctx, config)
+	}
+	return big.NewInt(0), common.Address{}, nil
+}
+
+func (m *MockOPStackBedrockProver) GenerateSettledStateProof(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *t.L2ConfigInfo) ([]byte, *types.Header, error) {
 	if m.GenerateSettledStateProofFunc != nil {
-		return m.GenerateSettledStateProofFunc(ctx, l1BlockNumber, config)
+		return m.GenerateSettledStateProofFunc(ctx, l1BlockNumber, outputIndex, rootAddress, config)
 	}
 	return nil, nil, nil
 }
 
 // MockOPStackCannonProver is a mock implementation of the provers.ISettledStateProver interface
 type MockOPStackCannonProver struct {
-	GenerateSettledStateProofFunc func(ctx context.Context, l1BlockNumber *big.Int, config *t.L2ConfigInfo) ([]byte, *types.Header, error)
+	FindLatestResolvedFunc        func(ctx context.Context, config *t.L2ConfigInfo) (*big.Int, common.Address, error)
+	GenerateSettledStateProofFunc func(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *t.L2ConfigInfo) ([]byte, *types.Header, error)
 }
 
-func (m *MockOPStackCannonProver) GenerateSettledStateProof(ctx context.Context, l1BlockNumber *big.Int, config *t.L2ConfigInfo) ([]byte, *types.Header, error) {
+func (m *MockOPStackCannonProver) FindLatestResolved(ctx context.Context, config *t.L2ConfigInfo) (*big.Int, common.Address, error) {
+	if m.FindLatestResolvedFunc != nil {
+		return m.FindLatestResolvedFunc(ctx, config)
+	}
+	return big.NewInt(0), common.Address{}, nil
+}
+
+func (m *MockOPStackCannonProver) GenerateSettledStateProof(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *t.L2ConfigInfo) ([]byte, *types.Header, error) {
 	if m.GenerateSettledStateProofFunc != nil {
-		return m.GenerateSettledStateProofFunc(ctx, l1BlockNumber, config)
+		return m.GenerateSettledStateProofFunc(ctx, l1BlockNumber, outputIndex, rootAddress, config)
 	}
 	return nil, nil, nil
 }

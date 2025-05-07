@@ -26,6 +26,8 @@ type Prover struct {
 	l1BlockHashOracle  common.Address
 	srcChainID         *big.Int
 	configProof        *types.UpdateL2ConfigArgs
+	gameIndex          *big.Int
+	rootAddress        common.Address
 }
 
 // NewProver initializes a new prover with the given RPC endpoints
@@ -85,6 +87,12 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 	} else {
 		return nil, fmt.Errorf("unsupported L2 config type: %s", l2Config.ConfigType)
 	}
+
+	index, address, err := settledStateProver.FindLatestResolved(ctx, l2Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find latest resolved info: %w", err)
+	}
+
 	return &Prover{
 		l1OriginProver:     provers.NewL1OriginProver(l1Client, dstL2Client),
 		l2StorageProver:    provers.NewStorageProver(srcL2Client, srcL2RPC),
@@ -94,6 +102,8 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 		l1BlockHashOracle:  l1BlockHashOracle,
 		srcChainID:         big.NewInt(int64(conf.SrcL2ChainID)),
 		configProof:        l2ConfigProof,
+		gameIndex:          index,
+		rootAddress:        address,
 	}, nil
 }
 
@@ -110,6 +120,8 @@ func (p *Prover) GenerateProveCalldata(
 	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
 		ctx,
 		l1Header.Number,
+		p.gameIndex,
+		p.rootAddress,
 		p.l2Config)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
@@ -175,6 +187,8 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
 		ctx,
 		l1Header.Number,
+		p.gameIndex,
+		p.rootAddress,
 		p.l2Config)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
@@ -241,6 +255,8 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
 		ctx,
 		l1Header.Number,
+		p.gameIndex,
+		p.rootAddress,
 		p.l2Config)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)

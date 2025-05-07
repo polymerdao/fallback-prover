@@ -85,9 +85,13 @@ type INativeProver interface {
 }
 
 type ISettledStateProver interface {
+	FindLatestResolved(
+		ctx context.Context,
+		config *t.L2ConfigInfo) (*big.Int, common.Address, error)
 	GenerateSettledStateProof(
 		ctx context.Context,
-		l1BlockNumber *big.Int,
+		l1BlockNumber, outputIndex *big.Int,
+		rootAddress common.Address,
 		config *t.L2ConfigInfo) ([]byte, *types.Header, error)
 }
 

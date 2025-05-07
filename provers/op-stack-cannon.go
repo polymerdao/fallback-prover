@@ -22,13 +22,17 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+var _ ISettledStateProver = &OPStackCannonProver{}
+
 // OPStackCannonProver handles proof generation for OP Stack Cannon chains
 type OPStackCannonProver struct {
-	l1Client IEthClient
-	l1RPC    IRPCClient
-	l2Client IEthClient
-	l2RPC    IRPCClient
-	abi      abi.ABI
+	l1Client   IEthClient
+	l1RPC      IRPCClient
+	l2Client   IEthClient
+	l2RPC      IRPCClient
+	abi        abi.ABI
+	factoryABI abi.ABI
+	gameABI    abi.ABI
 }
 
 // NewOPStackCannonProver creates a new prover instance for OP Stack Cannon
@@ -38,12 +42,24 @@ func NewOPStackCannonProver(l1Client IEthClient, l1RPC IRPCClient, l2Client IEth
 		return nil, err
 	}
 
+	factoryAbiObj, err := getDisputeGameFactoryABI()
+	if err != nil {
+		return nil, err
+	}
+
+	gameABIObj, err := getFaultDisputeGameABI()
+	if err != nil {
+		return nil, err
+	}
+
 	return &OPStackCannonProver{
-		l1Client: l1Client,
-		l1RPC:    l1RPC,
-		l2Client: l2Client,
-		l2RPC:    l2RPC,
-		abi:      abiObj,
+		l1Client:   l1Client,
+		l1RPC:      l1RPC,
+		l2Client:   l2Client,
+		l2RPC:      l2RPC,
+		abi:        abiObj,
+		factoryABI: factoryAbiObj,
+		gameABI:    gameABIObj,
 	}, nil
 }
 
@@ -258,38 +274,25 @@ const (
 	CannonL2MessagePasserAddress = "0x4200000000000000000000000000000000000016"
 )
 
-// GenerateSettledStateProof creates a proof for an OPStack Cannon L2 against L1
-func (p *OPStackCannonProver) GenerateSettledStateProof(
-	ctx context.Context,
-	l1BlockNumber *big.Int,
-	config *types.L2ConfigInfo) ([]byte, *types2.Header, error) {
+func (p *OPStackCannonProver) FindLatestResolved(ctx context.Context, config *types.L2ConfigInfo) (*big.Int, common.Address, error) {
 	if len(config.Addresses) < 1 || len(config.StorageSlots) < 3 {
-		return nil, nil, fmt.Errorf("invalid config: addresses or slots are insufficient")
+		return nil, common.Address{}, fmt.Errorf("invalid config: addresses or slots are insufficient")
 	}
 
 	// Get addresses and slots from the config
 	disputeGameFactoryAddr := config.Addresses[0]
-	disputeGameFactoryListSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[0])))
-	faultDisputeGameRootClaimSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[1])))
-	faultDisputeGameStatusSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[2])))
-
-	// Interact with the DisputeGameFactory to get information about dispute games
-	disputeGameFactoryABI, err := getDisputeGameFactoryABI()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse DisputeGameFactory ABI: %w", err)
-	}
 
 	// Get the total number of games
-	gameCountData, err := disputeGameFactoryABI.Pack("gameCount")
+	gameCountData, err := p.factoryABI.Pack("gameCount")
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to pack gameCount call: %w", err)
+		return nil, common.Address{}, fmt.Errorf("failed to pack gameCount call: %w", err)
 	}
 	gameCountResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
 		To:   &disputeGameFactoryAddr,
 		Data: gameCountData,
-	}, l1BlockNumber)
+	}, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to call gameCount: %w", err)
+		return nil, common.Address{}, fmt.Errorf("failed to call gameCount: %w", err)
 	}
 
 	// Handle the case where we receive raw bytes or properly ABI-encoded data
@@ -301,39 +304,33 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		log.Debug("Parsed gameCount from bytes", "count", gameCount, "len", len(gameCountResult), "bytes", fmt.Sprintf("%x", gameCountResult))
 	} else if len(gameCountResult) > 0 {
 		// If we have non-empty data but not 32 bytes, try ABI unpacking
-		if err := disputeGameFactoryABI.UnpackIntoInterface(&gameCount, "gameCount", gameCountResult); err != nil {
+		if err := p.factoryABI.UnpackIntoInterface(&gameCount, "gameCount", gameCountResult); err != nil {
 			log.Debug("Failed to unpack gameCount", "error", err, "resultLen", len(gameCountResult), "data", fmt.Sprintf("%x", gameCountResult))
-			return nil, nil, fmt.Errorf("failed to unpack game count: %w", err)
+			return nil, common.Address{}, fmt.Errorf("failed to unpack game count: %w", err)
 		}
 	} else {
 		log.Debug("Received empty gameCountResult", "len", len(gameCountResult))
-		return nil, nil, fmt.Errorf("empty game count result from contract")
+		return nil, common.Address{}, fmt.Errorf("empty game count result from contract")
 	}
 
 	// Find the latest resolved dispute game with a valid L2 output
 	var gameIndex *big.Int
 	var gameAddress common.Address
 
-	// Check game status
-	faultDisputeGameABI, err := getFaultDisputeGameABI()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse FaultDisputeGame ABI: %w", err)
-	}
-
 	// Start from the most recent game and work backwards
 	for i := new(big.Int).Sub(gameCount, big.NewInt(1)); i.Sign() >= 0; i.Sub(i, big.NewInt(1)) {
 		// Get the game address
-		gameAtIndexData, err := disputeGameFactoryABI.Pack("gameAtIndex", i)
+		gameAtIndexData, err := p.factoryABI.Pack("gameAtIndex", i)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to pack gameAtIndex call for index %v: %w", i, err)
+			return nil, common.Address{}, fmt.Errorf("failed to pack gameAtIndex call for index %v: %w", i, err)
 		}
 
 		gameAtIndexResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
 			To:   &disputeGameFactoryAddr,
 			Data: gameAtIndexData,
-		}, l1BlockNumber)
+		}, nil)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to call gameAtIndex for index %v: %w", i, err)
+			return nil, common.Address{}, fmt.Errorf("failed to call gameAtIndex for index %v: %w", i, err)
 		}
 
 		var currentGameAddress common.Address
@@ -345,15 +342,15 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		}
 		log.Debug("Game address from factory", "index", i, "address", currentGameAddress.Hex())
 
-		statusData, err := faultDisputeGameABI.Pack("status")
+		statusData, err := p.gameABI.Pack("status")
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to pack status call for game %s: %w", currentGameAddress.Hex(), err)
+			return nil, common.Address{}, fmt.Errorf("failed to pack status call for game %s: %w", currentGameAddress.Hex(), err)
 		}
 
 		statusResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
 			To:   &currentGameAddress,
 			Data: statusData,
-		}, l1BlockNumber)
+		}, nil)
 		if err != nil {
 			log.Debug("Failed to call status for game", "address", currentGameAddress.Hex(), "error", err)
 			continue
@@ -375,8 +372,26 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	}
 
 	if gameIndex == nil || gameIndex.Sign() < 0 {
-		return nil, nil, fmt.Errorf("no suitable resolved dispute games found")
+		return nil, common.Address{}, fmt.Errorf("no suitable resolved dispute games found")
 	}
+	return gameIndex, gameAddress, nil
+}
+
+// GenerateSettledStateProof creates a proof for an OPStack Cannon L2 against L1
+func (p *OPStackCannonProver) GenerateSettledStateProof(
+	ctx context.Context,
+	l1BlockNumber, gameIndex *big.Int,
+	gameAddress common.Address,
+	config *types.L2ConfigInfo) ([]byte, *types2.Header, error) {
+	if len(config.Addresses) < 1 || len(config.StorageSlots) < 3 {
+		return nil, nil, fmt.Errorf("invalid config: addresses or slots are insufficient")
+	}
+
+	// Get addresses and slots from the config
+	disputeGameFactoryAddr := config.Addresses[0]
+	disputeGameFactoryListSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[0])))
+	faultDisputeGameRootClaimSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[1])))
+	faultDisputeGameStatusSlot := common.BigToHash(big.NewInt(int64(config.StorageSlots[2])))
 
 	log.Debug("Using game", "index", gameIndex, "address", gameAddress.Hex())
 
@@ -389,7 +404,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 
 	// Get the storage proof from L1 for the dispute game factory
 	var disputeGameFactoryProof types.StorageProofResult
-	err = p.l1RPC.CallContext(
+	err := p.l1RPC.CallContext(
 		ctx,
 		&disputeGameFactoryProof,
 		"eth_getProof",
@@ -426,39 +441,8 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		disputeGameFactoryAccountProof[i] = common.FromHex(p)
 	}
 
-	// Get the root claim
-	rootClaimData, err := faultDisputeGameABI.Pack("rootClaim")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to pack rootClaim call: %w", err)
-	}
-
-	rootClaimResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
-		To:   &gameAddress,
-		Data: rootClaimData,
-	}, l1BlockNumber)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to call rootClaim: %w", err)
-	}
-
-	var rootClaim common.Hash
-
-	// First check if we got a valid result
-	if len(rootClaimResult) == 32 {
-		copy(rootClaim[:], rootClaimResult)
-		log.Debug("Parsed rootClaim from bytes", "claim", rootClaim.Hex(), "len", len(rootClaimResult), "bytes", fmt.Sprintf("%x", rootClaimResult))
-	} else if len(rootClaimResult) > 0 {
-		// Try to unpack via ABI
-		if err := faultDisputeGameABI.UnpackIntoInterface(&rootClaim, "rootClaim", rootClaimResult); err != nil {
-			log.Debug("Failed to unpack rootClaim", "error", err, "resultLen", len(rootClaimResult), "data", fmt.Sprintf("%x", rootClaimResult))
-			return nil, nil, fmt.Errorf("failed to unpack root claim: %w", err)
-		}
-	} else {
-		log.Debug("Received empty rootClaimResult", "len", len(rootClaimResult))
-		return nil, nil, fmt.Errorf("empty root claim result from contract")
-	}
-
 	// Get the l2BlockNumber
-	blockNumberData, err := faultDisputeGameABI.Pack("l2BlockNumber")
+	blockNumberData, err := p.gameABI.Pack("l2BlockNumber")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to pack l2BlockNumber call: %w", err)
 	}
@@ -479,7 +463,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		log.Debug("Parsed L2 block number from bytes", "blockNumber", l2BlockNumber.Uint64(), "len", len(l2BlockNumberResult))
 	} else if len(l2BlockNumberResult) > 0 {
 		// Try to unpack via ABI - this handles ABI-encoded data
-		if err := faultDisputeGameABI.UnpackIntoInterface(&l2BlockNumber, "l2BlockNumber", l2BlockNumberResult); err != nil {
+		if err := p.gameABI.UnpackIntoInterface(&l2BlockNumber, "l2BlockNumber", l2BlockNumberResult); err != nil {
 			log.Debug("Failed to unpack L2 block number", "error", err, "resultLen", len(l2BlockNumberResult), "data", fmt.Sprintf("%x", l2BlockNumberResult))
 			return nil, nil, fmt.Errorf("failed to unpack L2 block number: %w", err)
 		}
@@ -551,7 +535,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 
 	// Extract real timestamps and state from the fault dispute game contract
 	// Get createdAt timestamp
-	createdAtData, err := faultDisputeGameABI.Pack("createdAt")
+	createdAtData, err := p.gameABI.Pack("createdAt")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to pack createdAt call: %w", err)
 	}
@@ -574,7 +558,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	}
 
 	// Get resolvedAt timestamp
-	resolvedAtData, err := faultDisputeGameABI.Pack("resolvedAt")
+	resolvedAtData, err := p.gameABI.Pack("resolvedAt")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to pack resolvedAt call: %w", err)
 	}
