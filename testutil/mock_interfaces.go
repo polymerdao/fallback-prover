@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	t "github.com/polymerdao/fallback_prover/types"
@@ -140,69 +139,4 @@ func (m *MockOPStackCannonProver) GenerateSettledStateProof(ctx context.Context,
 		return m.GenerateSettledStateProofFunc(ctx, l1BlockNumber, outputIndex, rootAddress, config)
 	}
 	return nil, nil, nil
-}
-
-// MockNativeProver is a mock implementation of the provers.INativeProver interface
-type MockNativeProver struct {
-	// The implementation still uses the older style for backward compatibility with tests
-	EncodeProveCalldataFunc             func(chainID *big.Int, contractAddr common.Address, storageSlot common.Hash, storageValue common.Hash, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, l2WorldStateRoot common.Hash, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error)
-	EncodeUpdateAndProveCalldataFunc    func(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error)
-	EncodeConfigureAndProveCalldataFunc func(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error)
-	EncodeProveL1CalldataFunc           func(proveArgs t.ProveL1ScalarArgs, rlpEncodedL1Header []byte, l1StorageProof [][]byte, rlpEncodedContractAccount []byte, l1AccountProof [][]byte) ([]byte, error)
-	GetABIFunc                          func() abi.ABI
-}
-
-func (m *MockNativeProver) EncodeProveCalldata(
-	proveArgs t.ProveScalarArgs,
-	rlpEncodedL1Header []byte,
-	rlpEncodedL2Header []byte,
-	settledStateProof []byte,
-	l2StorageProof [][]byte,
-	rlpEncodedContractAccount []byte,
-	l2AccountProof [][]byte,
-) ([]byte, error) {
-	if m.EncodeProveCalldataFunc != nil {
-		return m.EncodeProveCalldataFunc(proveArgs.ChainID, proveArgs.ContractAddr, proveArgs.StorageSlot, proveArgs.StorageValue, rlpEncodedL1Header, rlpEncodedL2Header, proveArgs.L2WorldStateRoot, settledStateProof, l2StorageProof, rlpEncodedContractAccount, l2AccountProof)
-	}
-	return nil, nil
-}
-
-func (m *MockNativeProver) EncodeUpdateAndProveCalldata(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error) {
-	if m.EncodeUpdateAndProveCalldataFunc != nil {
-		return m.EncodeUpdateAndProveCalldataFunc(updateArgs, proveArgs, rlpEncodedL1Header, rlpEncodedL2Header, settledStateProof, l2StorageProof, rlpEncodedContractAccount, l2AccountProof)
-	}
-	return nil, nil
-}
-
-func (m *MockNativeProver) EncodeConfigureAndProveCalldata(updateArgs t.UpdateL2ConfigArgs, proveArgs t.ProveScalarArgs, rlpEncodedL1Header []byte, rlpEncodedL2Header []byte, settledStateProof []byte, l2StorageProof [][]byte, rlpEncodedContractAccount []byte, l2AccountProof [][]byte) ([]byte, error) {
-	if m.EncodeConfigureAndProveCalldataFunc != nil {
-		return m.EncodeConfigureAndProveCalldataFunc(updateArgs, proveArgs, rlpEncodedL1Header, rlpEncodedL2Header, settledStateProof, l2StorageProof, rlpEncodedContractAccount, l2AccountProof)
-	}
-	return nil, nil
-}
-
-func (m *MockNativeProver) EncodeProveL1Calldata(
-	proveArgs t.ProveL1ScalarArgs,
-	rlpEncodedL1Header []byte,
-	l1StorageProof [][]byte,
-	rlpEncodedContractAccount []byte,
-	l1AccountProof [][]byte,
-) ([]byte, error) {
-	if m.EncodeProveL1CalldataFunc != nil {
-		return m.EncodeProveL1CalldataFunc(
-			proveArgs,
-			rlpEncodedL1Header,
-			l1StorageProof,
-			rlpEncodedContractAccount,
-			l1AccountProof,
-		)
-	}
-	return nil, nil
-}
-
-func (m *MockNativeProver) GetABI() abi.ABI {
-	if m.GetABIFunc != nil {
-		return m.GetABIFunc()
-	}
-	return abi.ABI{}
 }

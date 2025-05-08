@@ -30,10 +30,8 @@ func main() {
 	app.Usage = "Tool for generating native proofs"
 	app.Description = "CLI tool that generates calldata for NativeProver.prove() function"
 	app.Commands = []*cli.Command{
-		ProveCmd,
-		UpdateAndProveCmd,
-		ConfigureAndProveCmd,
-		ProveL1Cmd,
+		ProveNativeCmd,
+		ProveL1NativeCmd,
 	}
 
 	// Create a context that gets canceled on interrupt signal
@@ -55,76 +53,23 @@ func main() {
 	}
 }
 
-var ProveCmd = &cli.Command{
-	Name:        "prove",
-	Usage:       "Generate proof calldata for NativeProver.prove() function",
-	Description: "Generate the calldata for a transaction calling the NativeProver.prove() function",
-	Action:      prove,
+var ProveNativeCmd = &cli.Command{
+	Name:        "proveNative",
+	Usage:       "Generate proof calldata for NativeProver.proveNative() function",
+	Description: "Generate the calldata for a transaction calling the NativeProver.proveNative() function",
+	Action:      proveNative,
 	Flags:       fallback_prover.L2Flags,
 }
 
-var UpdateAndProveCmd = &cli.Command{
-	Name:        "update-and-prove",
-	Usage:       "Generate proof calldata for NativeProver.updateAndProve() function",
-	Description: "Generate the calldata for a transaction calling the NativeProver.updateAndProve() function",
-	Action:      updateAndProve,
-	Flags:       fallback_prover.L2Flags,
-}
-
-var ConfigureAndProveCmd = &cli.Command{
-	Name:        "configure-and-prove",
-	Usage:       "Generate proof calldata for NativeProver.configureAndProve() function",
-	Description: "Generate the calldata for a transaction calling the NativeProver.configureAndProve() function",
-	Action:      configureAndProve,
-	Flags:       fallback_prover.L2Flags,
-}
-
-var ProveL1Cmd = &cli.Command{
-	Name:        "proveL1",
-	Usage:       "Generate proof calldata for NativeProver.proveL1() function",
-	Description: "Generate the calldata for a transaction calling the NativeProver.proveL1() function",
-	Action:      proveL1,
+var ProveL1NativeCmd = &cli.Command{
+	Name:        "proveNativeL1",
+	Usage:       "Generate proof calldata for NativeProver.proveL1Native() function",
+	Description: "Generate the calldata for a transaction calling the NativeProver.proveL1Native() function",
+	Action:      proveL1Native,
 	Flags:       fallback_prover.L1Flags,
 }
 
-func prove(c *cli.Context) error {
-	if err := fallback_prover.CheckRequiredL2(c); err != nil {
-		return err
-	}
-
-	config := fallback_prover.NewConfigFromCLI(c)
-	params := fallback_prover.NewParamsFromCLI(c)
-
-	log.Info("Generating prove() calldata",
-		"srcL2ChainID", config.SrcL2ChainID,
-		"dstL2ChainID", config.DstL2ChainID,
-		"srcAddress", params.Address,
-		"srcStorageSlot", params.StorageSlot)
-
-	// Initialize the prover
-	prover, err := fallback_prover.NewProver(
-		c.Context,
-		config,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to initialize prover: %w", err)
-	}
-
-	// Generate proof calldata
-	calldata, err := prover.GenerateProveCalldata(
-		c.Context,
-		params,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to generate proof calldata: %w", err)
-	}
-
-	// Output the calldata
-	fmt.Println(calldata)
-	return nil
-}
-
-func proveL1(c *cli.Context) error {
+func proveL1Native(c *cli.Context) error {
 	if err := fallback_prover.CheckRequiredL1(c); err != nil {
 		return err
 	}
@@ -160,7 +105,7 @@ func proveL1(c *cli.Context) error {
 	return nil
 }
 
-func updateAndProve(c *cli.Context) error {
+func proveNative(c *cli.Context) error {
 	if err := fallback_prover.CheckRequiredL2(c); err != nil {
 		return err
 	}
@@ -168,7 +113,7 @@ func updateAndProve(c *cli.Context) error {
 	config := fallback_prover.NewConfigFromCLI(c)
 	params := fallback_prover.NewParamsFromCLI(c)
 
-	log.Info("Generating updateAndProve() calldata",
+	log.Info("Generating proveNative() calldata",
 		"srcL2ChainID", config.SrcL2ChainID,
 		"dstL2ChainID", config.DstL2ChainID,
 		"srcAddress", params.Address,
@@ -183,50 +128,13 @@ func updateAndProve(c *cli.Context) error {
 		return fmt.Errorf("failed to initialize prover: %w", err)
 	}
 
-	// Generate updateAndProve calldata
-	calldata, err := prover.GenerateUpdateAndProveCalldata(
+	// Generate proveNative calldata
+	calldata, err := prover.GenerateProveNativeCalldata(
 		c.Context,
 		params,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to generate updateAndProve calldata: %w", err)
-	}
-
-	// Output the calldata
-	fmt.Println(calldata)
-	return nil
-}
-
-func configureAndProve(c *cli.Context) error {
-	if err := fallback_prover.CheckRequiredL2(c); err != nil {
-		return err
-	}
-
-	config := fallback_prover.NewConfigFromCLI(c)
-	params := fallback_prover.NewParamsFromCLI(c)
-
-	log.Info("Generating configureAndProve() calldata",
-		"srcL2ChainID", config.SrcL2ChainID,
-		"dstL2ChainID", config.DstL2ChainID,
-		"srcAddress", params.Address,
-		"srcStorageSlot", params.StorageSlot)
-
-	// Initialize the prover
-	prover, err := fallback_prover.NewProver(
-		c.Context,
-		config,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to initialize prover: %w", err)
-	}
-
-	// Generate configureAndProve calldata
-	calldata, err := prover.GenerateConfigureAndProveCalldata(
-		c.Context,
-		params,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to generate configureAndProve calldata: %w", err)
+		return fmt.Errorf("failed to generate proveNative calldata: %w", err)
 	}
 
 	// Output the calldata

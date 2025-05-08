@@ -337,6 +337,15 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 }
 
 func processAccountAndProofs(proof *types.StorageProofResult) ([][]byte, []byte, [][]byte, error) {
+	if len(proof.StorageProof) == 0 {
+		return nil, nil, nil, fmt.Errorf("StorageProofResult.StorageProof is nil")
+	}
+	if proof.Nonce == nil {
+		return nil, nil, nil, fmt.Errorf("StorageProofResult nonce is nil")
+	}
+	if proof.Balance == nil {
+		return nil, nil, nil, fmt.Errorf("StorageProofResult balance is nil")
+	}
 	l1StorageProof := make([][]byte, len(proof.StorageProof[0].Proof))
 	for i, p := range proof.StorageProof[0].Proof {
 		l1StorageProof[i] = common.FromHex(p)

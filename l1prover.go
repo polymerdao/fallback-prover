@@ -90,7 +90,7 @@ func (p *L1Prover) GenerateProveL1Calldata(
 		L1WorldStateRoot: l1Header.Root,
 	}
 
-	calldata, err := p.nativeProver.EncodeProveL1Calldata(
+	calldata, err := p.nativeProver.EncodeProveL1NativeCalldata(
 		proveArgs,
 		rlpEncodedL1Header,
 		l1StorageProof,

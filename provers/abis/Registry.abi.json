@@ -3,14 +3,9 @@
     "type": "constructor",
     "inputs": [
       {
-        "name": "_multiSigOwner",
+        "name": "_initialOwner",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "_onlyAdd",
-        "type": "bool",
-        "internalType": "bool"
       },
       {
         "name": "_initialL2Configurations",
@@ -110,6 +105,19 @@
   },
   {
     "type": "function",
+    "name": "DEFAULT_ADMIN_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getL1BlockHashOracle",
     "inputs": [
       {
@@ -180,6 +188,25 @@
         "name": "",
         "type": "uint8",
         "internalType": "enum Type"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRoleAdmin",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -268,43 +295,42 @@
   },
   {
     "type": "function",
-    "name": "granteeBitmap",
+    "name": "grantRole",
     "inputs": [
       {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
       },
       {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
       }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "irrevocableChainIDBitmap",
+    "name": "hasRole",
     "inputs": [
       {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -446,7 +472,7 @@
   },
   {
     "type": "function",
-    "name": "multiSigOwner",
+    "name": "owner",
     "inputs": [],
     "outputs": [
       {
@@ -459,7 +485,7 @@
   },
   {
     "type": "function",
-    "name": "onlyAdd",
+    "name": "paused",
     "inputs": [],
     "outputs": [
       {
@@ -469,6 +495,81 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "renounceRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "supportsInterface",
+    "inputs": [
+      {
+        "name": "interfaceId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -605,7 +706,7 @@
   },
   {
     "type": "event",
-    "name": "NewGrantee",
+    "name": "NewIrrevocableGrantee",
     "inputs": [
       {
         "name": "chainID",
@@ -624,21 +725,138 @@
   },
   {
     "type": "event",
-    "name": "NewIrrevocableGrantee",
+    "name": "OwnershipTransferred",
     "inputs": [
       {
-        "name": "chainID",
-        "type": "uint256",
+        "name": "previousOwner",
+        "type": "address",
         "indexed": true,
-        "internalType": "uint256"
+        "internalType": "address"
       },
       {
-        "name": "grantee",
+        "name": "newOwner",
         "type": "address",
         "indexed": true,
         "internalType": "address"
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Paused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleAdminChanged",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleGranted",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleRevoked",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Unpaused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidRange",
+    "inputs": [
+      {
+        "name": "startChainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "stopChainID",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   }
 ]
