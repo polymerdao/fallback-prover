@@ -66,8 +66,11 @@ func TestProver_GenerateProveCalldata(t *testing.T) {
 	}
 
 	mockBedrockProver := &testutil.MockOPStackBedrockProver{
-		GenerateSettledStateProofFunc: func(ctx context.Context, l1BlockNumber *big.Int, config *types2.L2ConfigInfo) ([]byte, *types.Header, error) {
+		GenerateSettledStateProofFunc: func(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *types2.L2ConfigInfo) ([]byte, *types.Header, error) {
 			return mockSettledStateProof, l2Header, nil
+		},
+		FindLatestResolvedFunc: func(ctx context.Context, config *types2.L2ConfigInfo) (*big.Int, common.Address, error) {
+			return big.NewInt(0), common.HexToAddress("0x1234"), nil
 		},
 	}
 
@@ -89,8 +92,11 @@ func TestProver_GenerateProveCalldata(t *testing.T) {
 	calldata, err := prover.GenerateProveCalldata(
 		context.Background(),
 		&ProveParams{
-			Address:     srcAddress,
-			StorageSlot: srcStorageSlot,
+			Address:           srcAddress,
+			StorageSlot:       srcStorageSlot,
+			WaitForNewEpoch:   false,
+			EpochPollingFreq:  5,
+			EpochPollingTries: 12,
 		},
 	)
 	require.NoError(t, err)
@@ -222,8 +228,11 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 	}
 
 	mockBedrockProver := &testutil.MockOPStackBedrockProver{
-		GenerateSettledStateProofFunc: func(ctx context.Context, l1BlockNumber *big.Int, config *types2.L2ConfigInfo) ([]byte, *types.Header, error) {
+		GenerateSettledStateProofFunc: func(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *types2.L2ConfigInfo) ([]byte, *types.Header, error) {
 			return mockSettledStateProof, l2Header, nil
+		},
+		FindLatestResolvedFunc: func(ctx context.Context, config *types2.L2ConfigInfo) (*big.Int, common.Address, error) {
+			return big.NewInt(0), common.HexToAddress("0x1234"), nil
 		},
 	}
 
@@ -251,8 +260,11 @@ func TestProver_GenerateUpdateAndProveCalldata(t *testing.T) {
 	calldata, err := prover.GenerateUpdateAndProveCalldata(
 		context.Background(),
 		&ProveParams{
-			Address:     srcAddress,
-			StorageSlot: srcStorageSlot,
+			Address:           srcAddress,
+			StorageSlot:       srcStorageSlot,
+			WaitForNewEpoch:   false,
+			EpochPollingFreq:  5,
+			EpochPollingTries: 12,
 		},
 	)
 	require.NoError(t, err)
@@ -415,8 +427,11 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 	}
 
 	mockCannonProver := &testutil.MockOPStackCannonProver{
-		GenerateSettledStateProofFunc: func(ctx context.Context, l1BlockNumber *big.Int, config *types2.L2ConfigInfo) ([]byte, *types.Header, error) {
+		GenerateSettledStateProofFunc: func(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *types2.L2ConfigInfo) ([]byte, *types.Header, error) {
 			return mockSettledStateProof, l2Header, nil
+		},
+		FindLatestResolvedFunc: func(ctx context.Context, config *types2.L2ConfigInfo) (*big.Int, common.Address, error) {
+			return big.NewInt(0), common.HexToAddress("0x1234"), nil
 		},
 	}
 
@@ -444,8 +459,11 @@ func TestProver_GenerateConfigureAndProveCalldata(t *testing.T) {
 	calldata, err := prover.GenerateConfigureAndProveCalldata(
 		context.Background(),
 		&ProveParams{
-			Address:     srcAddress,
-			StorageSlot: srcStorageSlot,
+			Address:           srcAddress,
+			StorageSlot:       srcStorageSlot,
+			WaitForNewEpoch:   false,
+			EpochPollingFreq:  5,
+			EpochPollingTries: 12,
 		},
 	)
 	require.NoError(t, err)

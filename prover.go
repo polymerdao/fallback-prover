@@ -26,6 +26,8 @@ type Prover struct {
 	l1BlockHashOracle  common.Address
 	srcChainID         *big.Int
 	configProof        *types.UpdateL2ConfigArgs
+	gameIndex          *big.Int
+	rootAddress        common.Address
 }
 
 // NewProver initializes a new prover with the given RPC endpoints
@@ -42,7 +44,6 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to source L2 RPC: %w", err)
 	}
-	srcL2Client := ethclient.NewClient(srcL2RPC)
 
 	// Set up destination L2 clients
 	dstL2RPC, err := rpc.Dial(conf.DstL2RPC)
@@ -73,27 +74,35 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 
 	var settledStateProver provers.ISettledStateProver
 	if l2Config.ConfigType == "OPStackBedrock" {
-		settledStateProver, err = provers.NewOPStackBedrockProver(l1Client, l1RPC, srcL2Client, srcL2RPC)
+		settledStateProver, err = provers.NewOPStackBedrockProver(l1Client, l1RPC, srcL2RPC)
 		if err != nil {
 			return nil, err
 		}
 	} else if l2Config.ConfigType == "OPStackCannon" {
-		settledStateProver, err = provers.NewOPStackCannonProver(l1Client, l1RPC, srcL2Client, srcL2RPC)
+		settledStateProver, err = provers.NewOPStackCannonProver(l1Client, l1RPC, srcL2RPC)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		return nil, fmt.Errorf("unsupported L2 config type: %s", l2Config.ConfigType)
 	}
+
+	index, address, err := settledStateProver.FindLatestResolved(ctx, l2Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find latest resolved info: %w", err)
+	}
+
 	return &Prover{
 		l1OriginProver:     provers.NewL1OriginProver(l1Client, dstL2Client),
-		l2StorageProver:    provers.NewStorageProver(srcL2Client, srcL2RPC),
+		l2StorageProver:    provers.NewStorageProver(ethclient.NewClient(srcL2RPC), srcL2RPC),
 		nativeProver:       nativeProver,
 		settledStateProver: settledStateProver,
 		l2Config:           l2Config,
 		l1BlockHashOracle:  l1BlockHashOracle,
 		srcChainID:         big.NewInt(int64(conf.SrcL2ChainID)),
 		configProof:        l2ConfigProof,
+		gameIndex:          index,
+		rootAddress:        address,
 	}, nil
 }
 
@@ -110,6 +119,8 @@ func (p *Prover) GenerateProveCalldata(
 	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
 		ctx,
 		l1Header.Number,
+		p.gameIndex,
+		p.rootAddress,
 		p.l2Config)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
@@ -175,6 +186,8 @@ func (p *Prover) GenerateUpdateAndProveCalldata(
 	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
 		ctx,
 		l1Header.Number,
+		p.gameIndex,
+		p.rootAddress,
 		p.l2Config)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)
@@ -241,6 +254,8 @@ func (p *Prover) GenerateConfigureAndProveCalldata(
 	settledStateProof, l2Header, err := p.settledStateProver.GenerateSettledStateProof(
 		ctx,
 		l1Header.Number,
+		p.gameIndex,
+		p.rootAddress,
 		p.l2Config)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate %s settled state proof: %w", p.l2Config.ConfigType, err)

@@ -4,6 +4,8 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,6 +22,7 @@ type IEthClient interface {
 
 type IRPCClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 }
 
 type IL1OriginProver interface {
@@ -85,9 +88,13 @@ type INativeProver interface {
 }
 
 type ISettledStateProver interface {
+	FindLatestResolved(
+		ctx context.Context,
+		config *t.L2ConfigInfo) (*big.Int, common.Address, error)
 	GenerateSettledStateProof(
 		ctx context.Context,
-		l1BlockNumber *big.Int,
+		l1BlockNumber, outputIndex *big.Int,
+		rootAddress common.Address,
 		config *t.L2ConfigInfo) ([]byte, *types.Header, error)
 }
 
