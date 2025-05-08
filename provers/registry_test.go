@@ -220,8 +220,11 @@ func TestRegistryProver_GetL2ConfigurationForUpdate(t *testing.T) {
 				// This returns the struct from the mapping
 				// We need to manually create a response that matches the expected ABI
 				// The response for prover, versionNumber, finalityDelaySeconds, l2Type
-				data := make([]byte, 128)                                                // 4 fields * 32 bytes
-				copy(data[12:32], proverAddr.Bytes())                                    // prover address (padded to 32 bytes)
+				data := make([]byte, 128) // 4 fields * 32 bytes
+				copy(
+					data[12:32],
+					proverAddr.Bytes(),
+				) // prover address (padded to 32 bytes)
 				copy(data[32:64], common.LeftPadBytes(versionNumber.Bytes(), 32))        // version number
 				copy(data[64:96], common.LeftPadBytes(finalityDelaySeconds.Bytes(), 32)) // finality delay
 				data[127] = configType                                                   // l2type uint8 (just the last byte)
@@ -313,7 +316,7 @@ func TestRegistryProver_GetRegistryStorageProof(t *testing.T) {
 				assert.Len(t, slotHashes, 1)
 				assert.Equal(t, strings.ToLower(expectedSlotHash), strings.ToLower(slotHashes[0]))
 
-				assert.Equal(t, "latest", args[2])
+				assert.Equal(t, "0x2", args[2])
 
 				// Set result by directly copying the mock result to the result pointer
 				proofResult, ok := result.(*types.StorageProofResult)
@@ -332,7 +335,11 @@ func TestRegistryProver_GetRegistryStorageProof(t *testing.T) {
 	prover := NewRegistryProver(nil, mockRPCClient, registryAddr)
 
 	// Call the method being tested
-	storageProof, rlpEncodedAccount, accountProof, err := prover.GetRegistryStorageProof(context.Background(), chainID)
+	storageProof, rlpEncodedAccount, accountProof, err := prover.GetRegistryStorageProof(
+		context.Background(),
+		chainID,
+		big.NewInt(2),
+	)
 
 	// Verify the results
 	require.NoError(t, err)
@@ -414,8 +421,11 @@ func TestRegistryProver_GenerateUpdateL2ConfigArgs(t *testing.T) {
 
 			case hexutil.Encode(l2ChainConfigurationsMethodID): // l2ChainConfigurations(uint256)
 				// Pack the struct data (prover, versionNumber, finalityDelaySeconds, l2Type)
-				data := make([]byte, 128)                                                // 4 fields * 32 bytes
-				copy(data[12:32], proverAddr.Bytes())                                    // prover address (padded to 32 bytes)
+				data := make([]byte, 128) // 4 fields * 32 bytes
+				copy(
+					data[12:32],
+					proverAddr.Bytes(),
+				) // prover address (padded to 32 bytes)
 				copy(data[32:64], common.LeftPadBytes(versionNumber.Bytes(), 32))        // version number
 				copy(data[64:96], common.LeftPadBytes(finalityDelaySeconds.Bytes(), 32)) // finality delay
 				data[127] = configType                                                   // l2type uint8 (just the last byte)
@@ -472,7 +482,7 @@ func TestRegistryProver_GenerateUpdateL2ConfigArgs(t *testing.T) {
 				assert.Len(t, slotHashes, 1)
 				assert.Equal(t, expectedSlotHash, slotHashes[0])
 
-				assert.Equal(t, "latest", args[2])
+				assert.Equal(t, "0x2", args[2])
 
 				// Set result by copying mock proof result
 				proofResult, ok := result.(*types.StorageProofResult)
@@ -491,7 +501,7 @@ func TestRegistryProver_GenerateUpdateL2ConfigArgs(t *testing.T) {
 	prover := NewRegistryProver(mockEthClient, mockRPCClient, registryAddr)
 
 	// Call the method being tested
-	updateArgs, err := prover.GenerateUpdateL2ConfigArgs(context.Background(), chainID)
+	updateArgs, err := prover.GenerateUpdateL2ConfigArgs(context.Background(), chainID, big.NewInt(2))
 	require.NoError(t, err)
 
 	// Verify the results

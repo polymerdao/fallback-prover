@@ -301,7 +301,11 @@ func (r *RegistryProver) GetL2ConfigurationForUpdate(ctx context.Context, chainI
 }
 
 // GetRegistryStorageProof gets a storage proof for the registry contract
-func (r *RegistryProver) GetRegistryStorageProof(ctx context.Context, chainID uint64) ([][]byte, []byte, [][]byte, error) {
+func (r *RegistryProver) GetRegistryStorageProof(
+	ctx context.Context,
+	chainID uint64,
+	blockNum *big.Int,
+) ([][]byte, []byte, [][]byte, error) {
 	// Calculate the storage slot for l2ChainConfigurationHashMap[chainID]
 	// In Solidity, the storage slot for mapping(uint256 => bytes32) at position X is keccak256(key . X)
 	// where . is concatenation and X is the position (padded to 32 bytes)
@@ -316,7 +320,14 @@ func (r *RegistryProver) GetRegistryStorageProof(ctx context.Context, chainID ui
 
 	// Use eth_getProof to generate the proof
 	var result t.StorageProofResult
-	err := r.l1RPC.CallContext(ctx, &result, "eth_getProof", r.registryAddr, []string{slotHash.Hex()}, "latest")
+	err := r.l1RPC.CallContext(
+		ctx,
+		&result,
+		"eth_getProof",
+		r.registryAddr,
+		[]string{slotHash.Hex()},
+		toBlockNumArg(blockNum),
+	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get storage proof from registry: %w", err)
 	}
@@ -356,7 +367,11 @@ func (r *RegistryProver) GetRegistryStorageProof(ctx context.Context, chainID ui
 }
 
 // GenerateUpdateL2ConfigArgs builds a complete UpdateL2ConfigArgs structure
-func (r *RegistryProver) GenerateUpdateL2ConfigArgs(ctx context.Context, chainID uint64) (*t.UpdateL2ConfigArgs, error) {
+func (r *RegistryProver) GenerateUpdateL2ConfigArgs(
+	ctx context.Context,
+	chainID uint64,
+	blockNumber *big.Int,
+) (*t.UpdateL2ConfigArgs, error) {
 	// Get the L2 configuration
 	l2Config, err := r.GetL2ConfigurationForUpdate(ctx, chainID)
 	if err != nil {
@@ -364,7 +379,11 @@ func (r *RegistryProver) GenerateUpdateL2ConfigArgs(ctx context.Context, chainID
 	}
 
 	// Get the registry storage proof
-	l1StorageProof, rlpEncodedRegistryData, l1RegistryProof, err := r.GetRegistryStorageProof(ctx, chainID)
+	l1StorageProof, rlpEncodedRegistryData, l1RegistryProof, err := r.GetRegistryStorageProof(
+		ctx,
+		chainID,
+		blockNumber,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry storage proof: %w", err)
 	}
