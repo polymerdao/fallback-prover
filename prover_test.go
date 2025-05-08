@@ -101,11 +101,13 @@ func TestProver_GenerateProveNativeCalldata(t *testing.T) {
 		l2Config:           testConfig,
 		l1BlockHashOracle:  common.HexToAddress("0x5678"),
 		srcChainID:         big.NewInt(int64(srcL2ChainID)), // Initialize the srcChainID field
-		configProof: &types2.UpdateL2ConfigArgs{
-			Config:                        l2Config,
-			L1StorageProof:                mockL1StorageProof,
-			RlpEncodedRegistryAccountData: mockEncodedRegistryAccount,
-			L1RegistryProof:               mockL1RegistryProof,
+		configProof: func(blockNum *big.Int) (*types2.UpdateL2ConfigArgs, error) {
+			return &types2.UpdateL2ConfigArgs{
+				Config:                        l2Config,
+				L1StorageProof:                mockL1StorageProof,
+				RlpEncodedRegistryAccountData: mockEncodedRegistryAccount,
+				L1RegistryProof:               mockL1RegistryProof,
+			}, nil
 		},
 	}
 
@@ -165,14 +167,43 @@ func TestProver_GenerateProveNativeCalldata(t *testing.T) {
 	require.True(t, ok, "Failed to cast updateArgsVal to expected struct type")
 
 	// Verify the updateArgs fields match expected values
-	assert.Equal(t, common.HexToAddress("0x9876543210abcdef9876543210abcdef98765432").Hex(), updateArgsStruct.Config.Prover.Hex(), "Prover address should match")
-	assert.Equal(t, common.HexToAddress("0xdeadbeef").Hex(), updateArgsStruct.Config.Addresses[0].Hex(), "Config address should match")
-	assert.Equal(t, big.NewInt(123).String(), updateArgsStruct.Config.StorageSlots[0].String(), "StorageSlot should match")
-	assert.Equal(t, big.NewInt(1).String(), updateArgsStruct.Config.VersionNumber.String(), "VersionNumber should match")
-	assert.Equal(t, big.NewInt(300).String(), updateArgsStruct.Config.FinalityDelaySeconds.String(), "FinalityDelaySeconds should match")
+	assert.Equal(
+		t,
+		common.HexToAddress("0x9876543210abcdef9876543210abcdef98765432").Hex(),
+		updateArgsStruct.Config.Prover.Hex(),
+		"Prover address should match",
+	)
+	assert.Equal(
+		t,
+		common.HexToAddress("0xdeadbeef").Hex(),
+		updateArgsStruct.Config.Addresses[0].Hex(),
+		"Config address should match",
+	)
+	assert.Equal(
+		t,
+		big.NewInt(123).String(),
+		updateArgsStruct.Config.StorageSlots[0].String(),
+		"StorageSlot should match",
+	)
+	assert.Equal(
+		t,
+		big.NewInt(1).String(),
+		updateArgsStruct.Config.VersionNumber.String(),
+		"VersionNumber should match",
+	)
+	assert.Equal(
+		t,
+		big.NewInt(300).String(),
+		updateArgsStruct.Config.FinalityDelaySeconds.String(),
+		"FinalityDelaySeconds should match",
+	)
 	assert.Equal(t, uint8(types2.OPStackCannon), updateArgsStruct.Config.L2Type, "L2Type should match")
 	assert.NotEmpty(t, updateArgsStruct.L1StorageProof, "L1StorageProof should be present")
-	assert.NotEmpty(t, updateArgsStruct.RlpEncodedRegistryAccountData, "RlpEncodedRegistryAccountData should be present")
+	assert.NotEmpty(
+		t,
+		updateArgsStruct.RlpEncodedRegistryAccountData,
+		"RlpEncodedRegistryAccountData should be present",
+	)
 	assert.NotEmpty(t, updateArgsStruct.L1RegistryProof, "L1RegistryProof should be present")
 
 	// Verify the _proveArgs

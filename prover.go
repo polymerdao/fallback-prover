@@ -25,7 +25,7 @@ type Prover struct {
 	l2Config           *types.L2ConfigInfo
 	l1BlockHashOracle  common.Address
 	srcChainID         *big.Int
-	configProof        *types.UpdateL2ConfigArgs
+	configProof        func(blockNum *big.Int) (*types.UpdateL2ConfigArgs, error)
 	gameIndex          *big.Int
 	rootAddress        common.Address
 }
@@ -67,7 +67,10 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 	if err != nil {
 		return nil, err
 	}
-	l2ConfigProof, err := registryProver.GenerateUpdateL2ConfigArgs(ctx, conf.SrcL2ChainID)
+	getL2ConfigProof := func(blockNum *big.Int) (*types.UpdateL2ConfigArgs, error) {
+		return registryProver.GenerateUpdateL2ConfigArgs(ctx, conf.SrcL2ChainID, blockNum)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate L2 config proof: %w", err)
 	}
@@ -100,7 +103,7 @@ func NewProver(ctx context.Context, conf *ProveConfig) (*Prover, error) {
 		l2Config:           l2Config,
 		l1BlockHashOracle:  l1BlockHashOracle,
 		srcChainID:         big.NewInt(int64(conf.SrcL2ChainID)),
-		configProof:        l2ConfigProof,
+		configProof:        getL2ConfigProof,
 		gameIndex:          index,
 		rootAddress:        address,
 	}, nil
@@ -156,8 +159,13 @@ func (p *Prover) GenerateProveNativeCalldata(
 		return "", fmt.Errorf("failed to encode L2 header: %w", err)
 	}
 
+	updateArgs, err := p.configProof(l1Header.Number)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate update args: %w", err)
+	}
+
 	calldata, err := p.nativeProver.EncodeProveNativeCalldata(
-		*p.configProof,
+		*updateArgs,
 		proveArgs,
 		rlpEncodedL1Header,
 		rlpEncodedL2Header,
