@@ -11,7 +11,7 @@ import (
 type L2ConfigInfo struct {
 	ConfigType   string
 	Addresses    []common.Address
-	StorageSlots []uint64
+	StorageSlots []*big.Int
 }
 
 // StorageProofResult contains the result of a storage proof request

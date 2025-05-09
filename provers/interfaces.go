@@ -35,9 +35,14 @@ type IStorageProver interface {
 		ctx context.Context,
 		contractAddr common.Address,
 		storageSlot common.Hash,
-		stateRoot common.Hash,
+		blockNumber *big.Int,
 	) ([][]byte, []byte, [][]byte, error)
-	GetStorageProof(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (*t.StorageProofResult, error)
+	GetStorageProof(
+		ctx context.Context,
+		address common.Address,
+		slot common.Hash,
+		blockNumber *big.Int,
+	) (*t.StorageProofResult, error)
 	GetStorageAt(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (string, error)
 }
 
@@ -73,7 +78,8 @@ type ISettledStateProver interface {
 		ctx context.Context,
 		l1BlockNumber, outputIndex *big.Int,
 		rootAddress common.Address,
-		config *t.L2ConfigInfo) ([]byte, *types.Header, error)
+		config *t.L2ConfigInfo
+		) ([]byte, *types.Header, error)
 }
 
 type IRegistryProver interface {
