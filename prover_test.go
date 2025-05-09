@@ -48,7 +48,7 @@ func TestProver_GenerateProveNativeCalldata(t *testing.T) {
 		Addresses: []common.Address{
 			common.HexToAddress("0x1234"),
 		},
-		StorageSlots: []uint64{0x123},
+		StorageSlots: []*big.Int{big.NewInt(0x123)},
 	}
 
 	// Create UpdateL2ConfigArgs with Cannon L2Type

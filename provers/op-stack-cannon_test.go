@@ -32,10 +32,10 @@ func TestOPStackCannonProver_FindLatestResolved(t *testing.T) {
 		Addresses: []common.Address{
 			disputeGameFactoryAddr,
 		},
-		StorageSlots: []uint64{
-			0x123, // DisputeGameFactory list slot
-			0x456, // FaultDisputeGame rootClaim slot
-			0x789, // FaultDisputeGame status slot
+		StorageSlots: []*big.Int{
+			big.NewInt(0x123), // DisputeGameFactory list slot
+			big.NewInt(0x456), // FaultDisputeGame rootClaim slot
+			big.NewInt(0x789), // FaultDisputeGame status slot
 		},
 	}
 
@@ -135,10 +135,10 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 		Addresses: []common.Address{
 			disputeGameFactoryAddr,
 		},
-		StorageSlots: []uint64{
-			0x123, // DisputeGameFactory list slot
-			0x456, // FaultDisputeGame rootClaim slot
-			0x789, // FaultDisputeGame status slot
+		StorageSlots: []*big.Int{
+			big.NewInt(0x123), // DisputeGameFactory list slot
+			big.NewInt(0x456), // FaultDisputeGame rootClaim slot
+			big.NewInt(0x789), // FaultDisputeGame status slot
 		},
 	}
 
@@ -149,7 +149,12 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 	mockL1Client := &testutil.MockEthClient{
 		CallContractFunc: func(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 			// Check that we're calling with the expected L1BlockNumber
-			require.Equal(t, expectedL1BlockNumber, blockNumber, "CallContract should be called with the expected L1BlockNumber")
+			require.Equal(
+				t,
+				expectedL1BlockNumber,
+				blockNumber,
+				"CallContract should be called with the expected L1BlockNumber",
+			)
 
 			// Check that we're calling one of the expected contracts
 			if msg.To.Hex() == disputeGameFactoryAddr.Hex() {

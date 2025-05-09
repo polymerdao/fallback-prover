@@ -104,7 +104,7 @@ func TestRegistryProver_GetL2Configuration(t *testing.T) {
 	}
 	require.Len(t, config.StorageSlots, len(slots))
 	for i, slot := range slots {
-		assert.Equal(t, slot.Uint64(), config.StorageSlots[i])
+		assert.Equal(t, slot.String(), config.StorageSlots[i].String())
 	}
 }
 
