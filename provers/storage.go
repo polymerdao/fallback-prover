@@ -35,7 +35,12 @@ type Account struct {
 }
 
 // GetStorageAt gets a storage value at the given address and slot
-func (s *StorageProver) GetStorageAt(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (string, error) {
+func (s *StorageProver) GetStorageAt(
+	ctx context.Context,
+	address common.Address,
+	slot common.Hash,
+	blockNumber *big.Int,
+) (string, error) {
 	var result string
 	err := s.rpc.CallContext(ctx, &result, "eth_getStorageAt", address.Hex(), slot.Hex(), toBlockNumArg(blockNumber))
 	if err != nil {
@@ -45,7 +50,12 @@ func (s *StorageProver) GetStorageAt(ctx context.Context, address common.Address
 }
 
 // GetStorageProof retrieves a storage proof for a contract address and storage slot
-func (s *StorageProver) GetStorageProof(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (*types.StorageProofResult, error) {
+func (s *StorageProver) GetStorageProof(
+	ctx context.Context,
+	address common.Address,
+	slot common.Hash,
+	blockNumber *big.Int,
+) (*types.StorageProofResult, error) {
 	var result types.StorageProofResult
 
 	// Use the eth_getProof RPC method to get the storage proof
@@ -62,10 +72,10 @@ func (s *StorageProver) GenerateStorageProof(
 	ctx context.Context,
 	contractAddr common.Address,
 	storageSlot common.Hash,
-	stateRoot common.Hash,
+	blockNumber *big.Int,
 ) ([][]byte, []byte, [][]byte, error) {
 	// Get the storage proof from the L2 node
-	proof, err := s.GetStorageProof(ctx, contractAddr, storageSlot, nil) // Use latest block
+	proof, err := s.GetStorageProof(ctx, contractAddr, storageSlot, blockNumber) // Use latest block
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get storage proof: %w", err)
 	}

@@ -94,7 +94,6 @@ func TestStorageProver_GenerateStorageProof(t *testing.T) {
 	// Create test data
 	address := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	slot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
-	stateRoot := common.HexToHash("0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba")
 	value := big.NewInt(0x123)
 
 	// Initialize storage proof result
@@ -126,7 +125,7 @@ func TestStorageProver_GenerateStorageProof(t *testing.T) {
 		context.Background(),
 		address,
 		slot,
-		stateRoot,
+		big.NewInt(3),
 	)
 	require.NoError(t, err)
 
@@ -142,5 +141,9 @@ func TestStorageProver_GenerateStorageProof(t *testing.T) {
 
 	assert.Equal(t, uint64(0), account.Nonce)
 	assert.Equal(t, big.NewInt(0), account.Balance)
-	assert.Equal(t, common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"), account.Root)
+	assert.Equal(
+		t,
+		common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"),
+		account.Root,
+	)
 }

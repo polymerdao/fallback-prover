@@ -75,7 +75,7 @@ func TestProver_GenerateProveNativeCalldata(t *testing.T) {
 		GetStorageAtFunc: func(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (string, error) {
 			return "0x0000000000000000000000000000000000000000000000000000000000000123", nil
 		},
-		GenerateStorageProofFunc: func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, stateRoot common.Hash) ([][]byte, []byte, [][]byte, error) {
+		GenerateStorageProofFunc: func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, blockNumber *big.Int) ([][]byte, []byte, [][]byte, error) {
 			return mockStorageProof, mockEncodedContractAccount, mockAccountProof, nil
 		},
 	}

@@ -32,21 +32,30 @@ func (m *MockRegistryProver) GetL1BlockHashOracle(ctx context.Context, chainID u
 	return common.Address{}, nil
 }
 
-func (m *MockRegistryProver) GetL2ConfigurationForUpdate(ctx context.Context, chainID uint64) (*t.L2Configuration, error) {
+func (m *MockRegistryProver) GetL2ConfigurationForUpdate(
+	ctx context.Context,
+	chainID uint64,
+) (*t.L2Configuration, error) {
 	if m.GetL2ConfigurationForUpdateFunc != nil {
 		return m.GetL2ConfigurationForUpdateFunc(ctx, chainID)
 	}
 	return nil, nil
 }
 
-func (m *MockRegistryProver) GetRegistryStorageProof(ctx context.Context, chainID uint64) ([][]byte, []byte, [][]byte, error) {
+func (m *MockRegistryProver) GetRegistryStorageProof(
+	ctx context.Context,
+	chainID uint64,
+) ([][]byte, []byte, [][]byte, error) {
 	if m.GetRegistryStorageProofFunc != nil {
 		return m.GetRegistryStorageProofFunc(ctx, chainID)
 	}
 	return nil, nil, nil, nil
 }
 
-func (m *MockRegistryProver) GenerateUpdateL2ConfigArgs(ctx context.Context, chainID uint64) (*t.UpdateL2ConfigArgs, error) {
+func (m *MockRegistryProver) GenerateUpdateL2ConfigArgs(
+	ctx context.Context,
+	chainID uint64,
+) (*t.UpdateL2ConfigArgs, error) {
 	if m.GenerateUpdateL2ConfigArgsFunc != nil {
 		return m.GenerateUpdateL2ConfigArgsFunc(ctx, chainID)
 	}
@@ -77,26 +86,41 @@ func (m *MockL1OriginProver) GetL1Origin(ctx context.Context, l1Hash common.Hash
 type MockStorageProver struct {
 	GetStorageAtFunc         func(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (string, error)
 	GetStorageProofFunc      func(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (*t.StorageProofResult, error)
-	GenerateStorageProofFunc func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, stateRoot common.Hash) ([][]byte, []byte, [][]byte, error)
+	GenerateStorageProofFunc func(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, blockNumber *big.Int) ([][]byte, []byte, [][]byte, error)
 }
 
-func (m *MockStorageProver) GetStorageAt(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (string, error) {
+func (m *MockStorageProver) GetStorageAt(
+	ctx context.Context,
+	address common.Address,
+	slot common.Hash,
+	blockNumber *big.Int,
+) (string, error) {
 	if m.GetStorageAtFunc != nil {
 		return m.GetStorageAtFunc(ctx, address, slot, blockNumber)
 	}
 	return "", nil
 }
 
-func (m *MockStorageProver) GetStorageProof(ctx context.Context, address common.Address, slot common.Hash, blockNumber *big.Int) (*t.StorageProofResult, error) {
+func (m *MockStorageProver) GetStorageProof(
+	ctx context.Context,
+	address common.Address,
+	slot common.Hash,
+	blockNumber *big.Int,
+) (*t.StorageProofResult, error) {
 	if m.GetStorageProofFunc != nil {
 		return m.GetStorageProofFunc(ctx, address, slot, blockNumber)
 	}
 	return nil, nil
 }
 
-func (m *MockStorageProver) GenerateStorageProof(ctx context.Context, contractAddr common.Address, storageSlot common.Hash, stateRoot common.Hash) ([][]byte, []byte, [][]byte, error) {
+func (m *MockStorageProver) GenerateStorageProof(
+	ctx context.Context,
+	contractAddr common.Address,
+	storageSlot common.Hash,
+	blockNumber *big.Int,
+) ([][]byte, []byte, [][]byte, error) {
 	if m.GenerateStorageProofFunc != nil {
-		return m.GenerateStorageProofFunc(ctx, contractAddr, storageSlot, stateRoot)
+		return m.GenerateStorageProofFunc(ctx, contractAddr, storageSlot, big.NewInt(3))
 	}
 	return nil, nil, nil, nil
 }
@@ -107,14 +131,22 @@ type MockOPStackBedrockProver struct {
 	GenerateSettledStateProofFunc func(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *t.L2ConfigInfo) ([]byte, *types.Header, error)
 }
 
-func (m *MockOPStackBedrockProver) FindLatestResolved(ctx context.Context, config *t.L2ConfigInfo) (*big.Int, common.Address, error) {
+func (m *MockOPStackBedrockProver) FindLatestResolved(
+	ctx context.Context,
+	config *t.L2ConfigInfo,
+) (*big.Int, common.Address, error) {
 	if m.FindLatestResolvedFunc != nil {
 		return m.FindLatestResolvedFunc(ctx, config)
 	}
 	return big.NewInt(0), common.Address{}, nil
 }
 
-func (m *MockOPStackBedrockProver) GenerateSettledStateProof(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *t.L2ConfigInfo) ([]byte, *types.Header, error) {
+func (m *MockOPStackBedrockProver) GenerateSettledStateProof(
+	ctx context.Context,
+	l1BlockNumber, outputIndex *big.Int,
+	rootAddress common.Address,
+	config *t.L2ConfigInfo,
+) ([]byte, *types.Header, error) {
 	if m.GenerateSettledStateProofFunc != nil {
 		return m.GenerateSettledStateProofFunc(ctx, l1BlockNumber, outputIndex, rootAddress, config)
 	}
@@ -127,14 +159,22 @@ type MockOPStackCannonProver struct {
 	GenerateSettledStateProofFunc func(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *t.L2ConfigInfo) ([]byte, *types.Header, error)
 }
 
-func (m *MockOPStackCannonProver) FindLatestResolved(ctx context.Context, config *t.L2ConfigInfo) (*big.Int, common.Address, error) {
+func (m *MockOPStackCannonProver) FindLatestResolved(
+	ctx context.Context,
+	config *t.L2ConfigInfo,
+) (*big.Int, common.Address, error) {
 	if m.FindLatestResolvedFunc != nil {
 		return m.FindLatestResolvedFunc(ctx, config)
 	}
 	return big.NewInt(0), common.Address{}, nil
 }
 
-func (m *MockOPStackCannonProver) GenerateSettledStateProof(ctx context.Context, l1BlockNumber, outputIndex *big.Int, rootAddress common.Address, config *t.L2ConfigInfo) ([]byte, *types.Header, error) {
+func (m *MockOPStackCannonProver) GenerateSettledStateProof(
+	ctx context.Context,
+	l1BlockNumber, outputIndex *big.Int,
+	rootAddress common.Address,
+	config *t.L2ConfigInfo,
+) ([]byte, *types.Header, error) {
 	if m.GenerateSettledStateProofFunc != nil {
 		return m.GenerateSettledStateProofFunc(ctx, l1BlockNumber, outputIndex, rootAddress, config)
 	}
