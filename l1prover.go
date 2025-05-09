@@ -77,7 +77,7 @@ func (p *L1Prover) GenerateProveL1Calldata(
 		ctx,
 		params.Address,
 		params.StorageSlot,
-		l1Header.Root,
+		l1Header.Number,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate storage proof: %w", err)

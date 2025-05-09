@@ -792,9 +792,9 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	statusData := FaultDisputeGameStatusSlot{
 		CreatedAt:               createdAt, // Example timestamp
 		ResolvedAt:              resolvedAt,
-		GameStatus:              2,    // Example status
-		Initialized:             true, // must be true if the game resolved
-		L2BlockNumberChallenged: true, // must be true if the game resolved in favor of defender
+		GameStatus:              2,     // Example status
+		Initialized:             true,  // must be true if the game resolved
+		L2BlockNumberChallenged: false, // must be false if the game resolved in favor of defender
 	}
 
 	factoryData := DisputeGameFactoryProof{

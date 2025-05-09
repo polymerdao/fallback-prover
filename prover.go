@@ -139,7 +139,7 @@ func (p *Prover) GenerateProveNativeCalldata(
 		ctx,
 		params.Address,
 		params.StorageSlot,
-		l2Header.Root,
+		l2Header.Number,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate storage proof: %w", err)
