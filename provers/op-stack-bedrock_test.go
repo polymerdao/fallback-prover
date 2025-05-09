@@ -29,8 +29,8 @@ func TestOPStackBedrockProver_FindLatestResolved(t *testing.T) {
 		Addresses: []common.Address{
 			l2OutputOracleAddr,
 		},
-		StorageSlots: []uint64{
-			0x123, // Some storage slot value
+		StorageSlots: []*big.Int{
+			big.NewInt(0x123), // Some storage slot value
 		},
 	}
 
@@ -77,8 +77,8 @@ func TestOPStackBedrockProver_GenerateSettledStateProof(t *testing.T) {
 		Addresses: []common.Address{
 			l2OutputOracleAddr,
 		},
-		StorageSlots: []uint64{
-			0x123, // Some storage slot value
+		StorageSlots: []*big.Int{
+			big.NewInt(0x123), // Some storage slot value
 		},
 	}
 
@@ -89,7 +89,12 @@ func TestOPStackBedrockProver_GenerateSettledStateProof(t *testing.T) {
 	mockL1Client := &testutil.MockEthClient{
 		CallContractFunc: func(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 			// Check that we're calling with the expected L1BlockNumber
-			require.Equal(t, expectedL1BlockNumber, blockNumber, "CallContract should be called with the expected L1BlockNumber")
+			require.Equal(
+				t,
+				expectedL1BlockNumber,
+				blockNumber,
+				"CallContract should be called with the expected L1BlockNumber",
+			)
 
 			// Check that we're calling the right contract
 			require.Equal(t, l2OutputOracleAddr.Hex(), msg.To.Hex())

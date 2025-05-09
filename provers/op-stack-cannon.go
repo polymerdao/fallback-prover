@@ -284,45 +284,6 @@ func getDisputeGameFactoryABI() (abi.ABI, error) {
 	]`))
 }
 
-// constructGameID creates a GameID following the format in the Optimism contracts
-// A GameID is a 32-byte identifier that combines:
-// - Game type (4 bytes)
-// - Creation timestamp (8 bytes)
-// - Game contract address (20 bytes)
-func constructGameID(gameType uint32, timestamp uint64, gameAddress common.Address) common.Hash {
-	var gameID common.Hash
-
-	// GameID structure (32 bytes total):
-	// Bytes 0-3:   Game type (uint32)
-	// Bytes 4-11:  Creation timestamp (uint64)
-	// Bytes 12-31: Game contract address (20 bytes)
-
-	// Convert game type to bytes and copy to the first 4 bytes
-	gameTypeBytes := make([]byte, 4)
-	gameTypeBytes[0] = byte(gameType >> 24) // Most significant byte
-	gameTypeBytes[1] = byte(gameType >> 16)
-	gameTypeBytes[2] = byte(gameType >> 8)
-	gameTypeBytes[3] = byte(gameType) // Least significant byte
-	copy(gameID[0:4], gameTypeBytes)
-
-	// Convert timestamp to bytes and copy to the next 8 bytes
-	timestampBytes := make([]byte, 8)
-	timestampBytes[0] = byte(timestamp >> 56) // Most significant byte
-	timestampBytes[1] = byte(timestamp >> 48)
-	timestampBytes[2] = byte(timestamp >> 40)
-	timestampBytes[3] = byte(timestamp >> 32)
-	timestampBytes[4] = byte(timestamp >> 24)
-	timestampBytes[5] = byte(timestamp >> 16)
-	timestampBytes[6] = byte(timestamp >> 8)
-	timestampBytes[7] = byte(timestamp) // Least significant byte
-	copy(gameID[4:12], timestampBytes)
-
-	// Copy the game address to the remaining 20 bytes
-	copy(gameID[12:32], gameAddress.Bytes())
-
-	return gameID
-}
-
 // getFaultDisputeGameABI returns the ABI for the FaultDisputeGame contract
 func getFaultDisputeGameABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(`[
@@ -527,19 +488,20 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 
 	// Get addresses and slots from the config
 	disputeGameFactoryAddr := config.Addresses[0]
-	disputeGameFactoryListSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[0]))
-	faultDisputeGameRootClaimSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[1]))
-	faultDisputeGameStatusSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[2]))
+	disputeGameFactoryListSlot := common.BigToHash(config.StorageSlots[0])
+	faultDisputeGameRootClaimSlot := common.BigToHash(config.StorageSlots[1])
+	faultDisputeGameStatusSlot := common.BigToHash(config.StorageSlots[2])
 
 	log.Debug("Using game", "index", gameIndex, "address", gameAddress.Hex())
 	fmt.Printf("Using game index %d, address %s \n", gameIndex, gameAddress.Hex())
 
 	// Get storage proof for the dispute game factory
 	// Calculate the storage slot for the game index
-	gameIndexSlot := crypto.Keccak256Hash(
-		common.LeftPadBytes(gameIndex.Bytes(), 32),
-		common.LeftPadBytes(disputeGameFactoryListSlot.Bytes(), 32),
-	)
+	baseSlotHash := crypto.Keccak256(disputeGameFactoryListSlot.Bytes())
+	gameIndexSlot := common.BigToHash(new(big.Int).Add(
+		new(big.Int).SetBytes(baseSlotHash),
+		gameIndex,
+	))
 
 	var rawFactoryProof json.RawMessage
 	factoryProofElem := rpc.BatchElem{
@@ -552,6 +514,23 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		Result: &rawFactoryProof,
 		Error:  nil,
 	}
+
+	// Query the storage slot
+	// Use eth_storageAt to query the storage slot
+	var gameId string
+	err = p.l1RPC.CallContext(
+		ctx,
+		&gameId,
+		"eth_getStorageAt",
+		disputeGameFactoryAddr.Hex(),
+		gameIndexSlot.Hex(),
+		toBlockNumArg(l1BlockNumber),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to call eth_storageAt for game index slot: %w", err)
+	}
+
+	// Convert the result to rawFactoryProof
 
 	// Get the storage proofs from L1 for the fault dispute game
 	var rawGameProof json.RawMessage
@@ -636,7 +615,7 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	}
 
 	// Convert storage proof to bytes
-	disputeFaultGameStorageProof, rlpEncodedDisputeGameFactoryData, disputeGameFactoryAccountProof, err := processAccountAndProofs(
+	disputeGameFactoryStorageProof, rlpEncodedDisputeGameFactoryData, disputeGameFactoryAccountProof, err := processAccountAndProofs(
 		&disputeGameFactoryProof,
 	)
 	if err != nil {
@@ -819,15 +798,11 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	}
 
 	factoryData := DisputeGameFactoryProof{
-		MessagePasserStateRoot: messagePasserRoot,
-		LatestBlockHash:        l2Header.Hash(),
-		GameIndex:              gameIndex,
-		GameId: constructGameID(
-			0,
-			createdAt,
-			gameAddress,
-		),
-		DisputeFaultGameStorageProof:     disputeFaultGameStorageProof,
+		MessagePasserStateRoot:           messagePasserRoot,
+		LatestBlockHash:                  l2Header.Hash(),
+		GameIndex:                        gameIndex,
+		GameId:                           common.HexToHash(gameId),
+		DisputeFaultGameStorageProof:     disputeGameFactoryStorageProof,
 		RlpEncodedDisputeGameFactoryData: rlpEncodedDisputeGameFactoryData,
 		DisputeGameFactoryAccountProof:   disputeGameFactoryAccountProof,
 	}

@@ -151,16 +151,10 @@ func (r *RegistryProver) GetL2Configuration(ctx context.Context, chainID uint64)
 		return nil, fmt.Errorf("failed to unpack storage slots: %w", err)
 	}
 
-	// Convert *big.Int slots to uint64 array
-	var uintSlots []uint64
-	for _, slot := range slots {
-		uintSlots = append(uintSlots, slot.Uint64())
-	}
-
 	return &t.L2ConfigInfo{
 		ConfigType:   configType,
 		Addresses:    addresses,
-		StorageSlots: uintSlots,
+		StorageSlots: slots,
 	}, nil
 }
 
