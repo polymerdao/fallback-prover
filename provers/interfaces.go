@@ -78,8 +78,8 @@ type ISettledStateProver interface {
 		ctx context.Context,
 		l1BlockNumber, outputIndex *big.Int,
 		rootAddress common.Address,
-		config *t.L2ConfigInfo
-		) ([]byte, *types.Header, error)
+		config *t.L2ConfigInfo,
+	) ([]byte, *types.Header, error)
 }
 
 type IRegistryProver interface {
