@@ -159,10 +159,15 @@ func getL2OutputOracleABI() (abi.ABI, error) {
 }
 
 var (
-	L2MessagePasserAddress = common.HexToAddress("0x4200000000000000000000000000000000000016") // Standard address on OP Stack
+	L2MessagePasserAddress = common.HexToAddress(
+		"0x4200000000000000000000000000000000000016",
+	) // Standard address on OP Stack
 )
 
-func (p *OPStackBedrockProver) FindLatestResolved(ctx context.Context, config *types.L2ConfigInfo) (*big.Int, common.Address, error) {
+func (p *OPStackBedrockProver) FindLatestResolved(
+	ctx context.Context,
+	config *types.L2ConfigInfo,
+) (*big.Int, common.Address, error) {
 	if len(config.Addresses) == 0 || len(config.StorageSlots) == 0 {
 		return nil, common.Address{}, fmt.Errorf("invalid config: addresses or slots are empty")
 	}
@@ -205,7 +210,7 @@ func (p *OPStackBedrockProver) GenerateSettledStateProof(
 	var storageSlot common.Hash
 	if len(config.StorageSlots) > 0 {
 		// Use the storage slot from the config
-		baseSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[0]))
+		baseSlot := common.BigToHash(config.StorageSlots[0])
 		storageSlot = crypto.Keccak256Hash(
 			common.LeftPadBytes(outputIndex.Bytes(), 32),
 			common.LeftPadBytes(baseSlot.Bytes(), 32),

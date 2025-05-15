@@ -37,6 +37,131 @@ type OPStackCannonProver struct {
 	gameABI    abi.ABI
 }
 
+// struct DisputeGameFactoryProofData {
+//     bytes32 messagePasserStateRoot;
+//     bytes32 latestBlockHash;
+//     uint256 gameIndex;
+//     bytes32 gameId;
+//     bytes[] disputeFaultGameStorageProof;
+//     bytes rlpEncodedDisputeGameFactoryData;
+//     bytes[] disputeGameFactoryAccountProof;
+// }
+
+// struct FaultDisputeGameStatusSlotData {
+//     uint64 createdAt;
+//     uint64 resolvedAt;
+//     uint8 gameStatus;
+//     bool initialized;
+//     bool l2BlockNumberChallenged;
+// }
+
+// struct FaultDisputeGameProofData {
+//     bytes32 faultDisputeGameStateRoot;
+//     bytes[] faultDisputeGameRootClaimStorageProof;
+//     FaultDisputeGameStatusSlotData faultDisputeGameStatusSlotData;
+//     bytes[] faultDisputeGameStatusStorageProof;
+//     bytes rlpEncodedFaultDisputeGameData;
+//     bytes[] faultDisputeGameAccountProof;
+// }
+
+type DisputeGameFactoryProof struct {
+	MessagePasserStateRoot           [32]byte
+	LatestBlockHash                  [32]byte
+	GameIndex                        *big.Int
+	GameId                           [32]byte
+	DisputeFaultGameStorageProof     [][]byte
+	RlpEncodedDisputeGameFactoryData []byte
+	DisputeGameFactoryAccountProof   [][]byte
+}
+
+type FaultDisputeGameStatusSlot struct {
+	CreatedAt               uint64
+	ResolvedAt              uint64
+	GameStatus              uint8
+	Initialized             bool
+	L2BlockNumberChallenged bool
+}
+
+type FaultDisputeGameProof struct {
+	FaultDisputeGameStateRoot             [32]byte
+	FaultDisputeGameRootClaimStorageProof [][]byte
+	FaultDisputeGameStatusSlotData        FaultDisputeGameStatusSlot
+	FaultDisputeGameStatusStorageProof    [][]byte
+	RlpEncodedFaultDisputeGameData        []byte
+	FaultDisputeGameAccountProof          [][]byte
+}
+
+var DisputeGameFactoryProofDataType, err = abi.NewType("tuple", "DisputeGameFactoryProofData", []abi.ArgumentMarshaling{
+	{Name: "messagePasserStateRoot", Type: "bytes32", InternalType: "bytes32"},
+	{Name: "latestBlockHash", Type: "bytes32", InternalType: "bytes32"},
+	{Name: "gameIndex", Type: "uint256", InternalType: "uint256"},
+	{Name: "gameId", Type: "bytes32", InternalType: "bytes32"},
+	{
+		Name: "disputeFaultGameStorageProof",
+		Type: "bytes[]", InternalType: "bytes[]",
+	},
+	{
+		Name: "rlpEncodedDisputeGameFactoryData",
+		Type: "bytes", InternalType: "bytes",
+	},
+	{
+		Name: "disputeGameFactoryAccountProof",
+		Type: "bytes[]", InternalType: "bytes[]",
+	},
+})
+
+// FaultDisputeGameStatusSlotData ABI type
+var FaultDisputeGameStatusSlotDataType, _ = abi.NewType(
+	"tuple",
+	"FaultDisputeGameStatusSlotData",
+	[]abi.ArgumentMarshaling{
+		{Name: "createdAt", Type: "uint64", InternalType: "uint64"},
+		{Name: "resolvedAt", Type: "uint64", InternalType: "uint64"},
+		{Name: "gameStatus", Type: "uint8", InternalType: "uint8"},
+		{Name: "initialized", Type: "bool", InternalType: "bool"},
+		{Name: "l2BlockNumberChallenged", Type: "bool", InternalType: "bool"},
+	},
+)
+
+// FaultDisputeGameProofData ABI type
+var FaultDisputeGameProofDataType, _ = abi.NewType("tuple", "FaultDisputeGameProofData", []abi.ArgumentMarshaling{
+	{Name: "faultDisputeGameStateRoot", Type: "bytes32", InternalType: "bytes32"},
+	{
+		Name: "faultDisputeGameRootClaimStorageProof",
+		Type: "bytes[]", InternalType: "bytes[]",
+	},
+	{
+		Name: "faultDisputeGameStatusSlotData",
+		Type: "tuple", InternalType: "FaultDisputeGameStatusSlotData",
+		Components: []abi.ArgumentMarshaling{
+			{Name: "createdAt", Type: "uint64", InternalType: "uint64"},
+			{Name: "resolvedAt", Type: "uint64", InternalType: "uint64"},
+			{Name: "gameStatus", Type: "uint8", InternalType: "uint8"},
+			{Name: "initialized", Type: "bool", InternalType: "bool"},
+			{Name: "l2BlockNumberChallenged", Type: "bool", InternalType: "bool"},
+		},
+	},
+	{
+		Name: "faultDisputeGameStatusStorageProof",
+		Type: "bytes[]", InternalType: "bytes[]",
+	},
+	{
+		Name: "rlpEncodedFaultDisputeGameData",
+		Type: "bytes", InternalType: "bytes",
+	},
+	{
+		Name: "faultDisputeGameAccountProof",
+		Type: "bytes[]", InternalType: "bytes[]",
+	},
+})
+var EncodedOpstackCannonProof = abi.Arguments{
+	{
+		Name: "disputeGameFactoryProofData",
+		Type: DisputeGameFactoryProofDataType,
+	},
+	{Name: "faultDisputeGameProofData", Type: FaultDisputeGameProofDataType},
+}
+
 // NewOPStackCannonProver creates a new prover instance for OP Stack Cannon
 func NewOPStackCannonProver(l1Client IEthClient, l1RPC, l2RPC IRPCClient) (*OPStackCannonProver, error) {
 	abiObj, err := getOPStackCannonProverABI()
@@ -159,45 +284,6 @@ func getDisputeGameFactoryABI() (abi.ABI, error) {
 	]`))
 }
 
-// constructGameID creates a GameID following the format in the Optimism contracts
-// A GameID is a 32-byte identifier that combines:
-// - Game type (4 bytes)
-// - Creation timestamp (8 bytes)
-// - Game contract address (20 bytes)
-func constructGameID(gameType uint32, timestamp uint64, gameAddress common.Address) common.Hash {
-	var gameID common.Hash
-
-	// GameID structure (32 bytes total):
-	// Bytes 0-3:   Game type (uint32)
-	// Bytes 4-11:  Creation timestamp (uint64)
-	// Bytes 12-31: Game contract address (20 bytes)
-
-	// Convert game type to bytes and copy to the first 4 bytes
-	gameTypeBytes := make([]byte, 4)
-	gameTypeBytes[0] = byte(gameType >> 24) // Most significant byte
-	gameTypeBytes[1] = byte(gameType >> 16)
-	gameTypeBytes[2] = byte(gameType >> 8)
-	gameTypeBytes[3] = byte(gameType) // Least significant byte
-	copy(gameID[0:4], gameTypeBytes)
-
-	// Convert timestamp to bytes and copy to the next 8 bytes
-	timestampBytes := make([]byte, 8)
-	timestampBytes[0] = byte(timestamp >> 56) // Most significant byte
-	timestampBytes[1] = byte(timestamp >> 48)
-	timestampBytes[2] = byte(timestamp >> 40)
-	timestampBytes[3] = byte(timestamp >> 32)
-	timestampBytes[4] = byte(timestamp >> 24)
-	timestampBytes[5] = byte(timestamp >> 16)
-	timestampBytes[6] = byte(timestamp >> 8)
-	timestampBytes[7] = byte(timestamp) // Least significant byte
-	copy(gameID[4:12], timestampBytes)
-
-	// Copy the game address to the remaining 20 bytes
-	copy(gameID[12:32], gameAddress.Bytes())
-
-	return gameID
-}
-
 // getFaultDisputeGameABI returns the ABI for the FaultDisputeGame contract
 func getFaultDisputeGameABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(`[
@@ -275,7 +361,10 @@ const (
 	CannonL2MessagePasserAddress = "0x4200000000000000000000000000000000000016"
 )
 
-func (p *OPStackCannonProver) FindLatestResolved(ctx context.Context, config *types.L2ConfigInfo) (*big.Int, common.Address, error) {
+func (p *OPStackCannonProver) FindLatestResolved(
+	ctx context.Context,
+	config *types.L2ConfigInfo,
+) (*big.Int, common.Address, error) {
 	if len(config.Addresses) < 1 || len(config.StorageSlots) < 3 {
 		return nil, common.Address{}, fmt.Errorf("invalid config: addresses or slots are insufficient")
 	}
@@ -302,7 +391,15 @@ func (p *OPStackCannonProver) FindLatestResolved(ctx context.Context, config *ty
 	// First, try to parse it as raw bytes
 	if len(gameCountResult) == 32 {
 		gameCount = new(big.Int).SetBytes(gameCountResult)
-		log.Debug("Parsed gameCount from bytes", "count", gameCount, "len", len(gameCountResult), "bytes", fmt.Sprintf("%x", gameCountResult))
+		log.Debug(
+			"Parsed gameCount from bytes",
+			"count",
+			gameCount,
+			"len",
+			len(gameCountResult),
+			"bytes",
+			fmt.Sprintf("%x", gameCountResult),
+		)
 	} else {
 		log.Debug("Received empty gameCountResult", "len", len(gameCountResult))
 		return nil, common.Address{}, fmt.Errorf("empty game count result from contract")
@@ -342,7 +439,11 @@ func (p *OPStackCannonProver) FindLatestResolved(ctx context.Context, config *ty
 
 		statusData, err := p.gameABI.Pack("status")
 		if err != nil {
-			return nil, common.Address{}, fmt.Errorf("failed to pack status call for game %s: %w", currentGameAddress.Hex(), err)
+			return nil, common.Address{}, fmt.Errorf(
+				"failed to pack status call for game %s: %w",
+				currentGameAddress.Hex(),
+				err,
+			)
 		}
 
 		statusResult, err := p.l1Client.CallContract(ctx, ethereum.CallMsg{
@@ -387,18 +488,20 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 
 	// Get addresses and slots from the config
 	disputeGameFactoryAddr := config.Addresses[0]
-	disputeGameFactoryListSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[0]))
-	faultDisputeGameRootClaimSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[1]))
-	faultDisputeGameStatusSlot := common.BigToHash(new(big.Int).SetUint64(config.StorageSlots[2]))
+	disputeGameFactoryListSlot := common.BigToHash(config.StorageSlots[0])
+	faultDisputeGameRootClaimSlot := common.BigToHash(config.StorageSlots[1])
+	faultDisputeGameStatusSlot := common.BigToHash(config.StorageSlots[2])
 
 	log.Debug("Using game", "index", gameIndex, "address", gameAddress.Hex())
+	fmt.Printf("Using game index %d, address %s \n", gameIndex, gameAddress.Hex())
 
 	// Get storage proof for the dispute game factory
 	// Calculate the storage slot for the game index
-	gameIndexSlot := crypto.Keccak256Hash(
-		common.LeftPadBytes(gameIndex.Bytes(), 32),
-		common.LeftPadBytes(disputeGameFactoryListSlot.Bytes(), 32),
-	)
+	baseSlotHash := crypto.Keccak256(disputeGameFactoryListSlot.Bytes())
+	gameIndexSlot := common.BigToHash(new(big.Int).Add(
+		new(big.Int).SetBytes(baseSlotHash),
+		gameIndex,
+	))
 
 	var rawFactoryProof json.RawMessage
 	factoryProofElem := rpc.BatchElem{
@@ -411,6 +514,23 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		Result: &rawFactoryProof,
 		Error:  nil,
 	}
+
+	// Query the storage slot
+	// Use eth_storageAt to query the storage slot
+	var gameId string
+	err = p.l1RPC.CallContext(
+		ctx,
+		&gameId,
+		"eth_getStorageAt",
+		disputeGameFactoryAddr.Hex(),
+		gameIndexSlot.Hex(),
+		toBlockNumArg(l1BlockNumber),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to call eth_storageAt for game index slot: %w", err)
+	}
+
+	// Convert the result to rawFactoryProof
 
 	// Get the storage proofs from L1 for the fault dispute game
 	var rawGameProof json.RawMessage
@@ -431,15 +551,20 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	}
 	for _, elem := range l1BatchElems {
 		if elem.Error != nil {
+			fmt.Println("ERRORR 1")
 			return nil, nil, fmt.Errorf("l1 RPC batch request error for method %s: %w", elem.Method, elem.Error)
 		}
 		if elem.Result == nil {
+			fmt.Println("ERRORR")
 			return nil, nil, fmt.Errorf("l1 RPC batch request result is nil for method %s", elem.Method)
 		}
 	}
 
+	fmt.Println("done batching things")
+
 	var faultDisputeGameProof types.StorageProofResult
 	if err := json.Unmarshal(rawGameProof, &faultDisputeGameProof); err != nil {
+		fmt.Println("ERRORR 1")
 		return nil, nil, fmt.Errorf("failed to unmarshal game proof: %w", err)
 	}
 	var disputeGameFactoryProof types.StorageProofResult
@@ -490,7 +615,9 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	}
 
 	// Convert storage proof to bytes
-	disputeFaultGameStorageProof, rlpEncodedDisputeGameFactoryData, disputeGameFactoryAccountProof, err := processAccountAndProofs(&disputeGameFactoryProof)
+	disputeGameFactoryStorageProof, rlpEncodedDisputeGameFactoryData, disputeGameFactoryAccountProof, err := processAccountAndProofs(
+		&disputeGameFactoryProof,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to process account and proofs: %w", err)
 	}
@@ -500,7 +627,13 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	if len(l2BlockNumberResult) == 32 {
 		// For uint256 values, we can directly convert the 32 bytes to a big.Int
 		l2BlockNumber = new(big.Int).SetBytes(l2BlockNumberResult)
-		log.Debug("Parsed L2 block number from bytes", "blockNumber", l2BlockNumber.Uint64(), "len", len(l2BlockNumberResult))
+		log.Debug(
+			"Parsed L2 block number from bytes",
+			"blockNumber",
+			l2BlockNumber.Uint64(),
+			"len",
+			len(l2BlockNumberResult),
+		)
 	} else {
 		log.Debug("Received empty L2 block number result", "len", len(l2BlockNumberResult))
 		return nil, nil, fmt.Errorf("empty L2 block number result from contract")
@@ -580,22 +713,6 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		return nil, nil, fmt.Errorf("invalid resolvedAt %d", resolvedAt)
 	}
 
-	// Create the status data structure with real values from the contract
-	faultDisputeGameStatusData := struct {
-		CreatedAt               uint64
-		ResolvedAt              uint64
-		GameStatus              uint8
-		Initialized             bool
-		L2BlockNumberChallenged bool
-	}{
-		CreatedAt:               createdAt,
-		ResolvedAt:              resolvedAt,
-		GameStatus:              2,
-		Initialized:             true, // must be true if the game resolved
-		L2BlockNumberChallenged: true, // must be true if the game resolved in favor of defender
-	}
-
-	rlpEncodedStatusData, err := rlp.EncodeToBytes(faultDisputeGameStatusData)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to RLP encode status data: %w", err)
 	}
@@ -672,45 +789,54 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 
 	messagePasserRoot := messagePasserProof.StorageHash
 
-	// Package everything together
-	// Format for OPStackCannonSettledStateProof:
-	// [
-	//   DisputeGameFactoryProofData,
-	//   FaultDisputeGameProofData
-	// ]
-
-	// DisputeGameFactoryProofData:
-	disputeGameFactoryProofData := []interface{}{
-		messagePasserRoot,
-		l2Header.Hash(),
-		gameIndex.Uint64(),
-		constructGameID(0, createdAt, gameAddress), // Construct proper GameID with type 0 (fault), creation timestamp, and address
-		disputeFaultGameStorageProof,
-		rlpEncodedDisputeGameFactoryData,
-		disputeGameFactoryAccountProof,
+	statusData := FaultDisputeGameStatusSlot{
+		CreatedAt:               createdAt, // Example timestamp
+		ResolvedAt:              resolvedAt,
+		GameStatus:              2,     // Example status
+		Initialized:             true,  // must be true if the game resolved
+		L2BlockNumberChallenged: false, // must be false if the game resolved in favor of defender
 	}
 
-	// FaultDisputeGameProofData:
-	faultDisputeGameProofData := []interface{}{
-		faultDisputeGameStateRoot,
-		faultDisputeGameRootClaimStorageProof,
-		rlpEncodedStatusData,
-		faultDisputeGameStatusStorageProof,
-		rlpEncodedFaultDisputeGameData,
-		faultDisputeGameAccountProof,
+	factoryData := DisputeGameFactoryProof{
+		MessagePasserStateRoot:           messagePasserRoot,
+		LatestBlockHash:                  l2Header.Hash(),
+		GameIndex:                        gameIndex,
+		GameId:                           common.HexToHash(gameId),
+		DisputeFaultGameStorageProof:     disputeGameFactoryStorageProof,
+		RlpEncodedDisputeGameFactoryData: rlpEncodedDisputeGameFactoryData,
+		DisputeGameFactoryAccountProof:   disputeGameFactoryAccountProof,
 	}
 
-	// Combine them
-	settledStateProofData := []interface{}{
-		disputeGameFactoryProofData,
-		faultDisputeGameProofData,
+	faultData := FaultDisputeGameProof{
+		FaultDisputeGameStateRoot:             faultDisputeGameStateRoot,
+		FaultDisputeGameRootClaimStorageProof: faultDisputeGameRootClaimStorageProof,
+		FaultDisputeGameStatusSlotData:        statusData,
+		FaultDisputeGameStatusStorageProof:    faultDisputeGameStatusStorageProof,
+		RlpEncodedFaultDisputeGameData:        rlpEncodedFaultDisputeGameData,
+		FaultDisputeGameAccountProof:          faultDisputeGameAccountProof,
 	}
 
 	// RLP encode the final proof
-	settledStateProof, err := rlp.EncodeToBytes(settledStateProofData)
+	settledStateProof, err := encodeCannonProof(factoryData, faultData) // rlp.EncodeToBytes(settledStateProofData)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to RLP encode settled state proof: %w", err)
 	}
 
 	return settledStateProof, &l2Header, nil
+}
+
+func encodeCannonProof(factoryData DisputeGameFactoryProof, faultData FaultDisputeGameProof) ([]byte, error) {
+	encodedBytes, err := EncodedOpstackCannonProof.Pack(
+		factoryData,
+		faultData,
+	)
+	if err != nil {
+		fmt.Printf("failed to pack data: %v\n", err)
+		return nil, err
+	}
+
+	fmt.Printf("Encoded _proof (hex): 0x%x\n", encodedBytes)
+
+	return encodedBytes, nil
+
 }
