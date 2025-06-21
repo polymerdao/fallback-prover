@@ -56,7 +56,6 @@ type OPStackCannonProver struct {
 // }
 
 // struct FaultDisputeGameProofData {
-//     bytes32 faultDisputeGameStateRoot;
 //     bytes[] faultDisputeGameRootClaimStorageProof;
 //     FaultDisputeGameStatusSlotData faultDisputeGameStatusSlotData;
 //     bytes[] faultDisputeGameStatusStorageProof;
@@ -83,7 +82,6 @@ type FaultDisputeGameStatusSlot struct {
 }
 
 type FaultDisputeGameProof struct {
-	FaultDisputeGameStateRoot             [32]byte
 	FaultDisputeGameRootClaimStorageProof [][]byte
 	FaultDisputeGameStatusSlotData        FaultDisputeGameStatusSlot
 	FaultDisputeGameStatusStorageProof    [][]byte
@@ -125,7 +123,6 @@ var FaultDisputeGameStatusSlotDataType, _ = abi.NewType(
 
 // FaultDisputeGameProofData ABI type
 var FaultDisputeGameProofDataType, _ = abi.NewType("tuple", "FaultDisputeGameProofData", []abi.ArgumentMarshaling{
-	{Name: "faultDisputeGameStateRoot", Type: "bytes32", InternalType: "bytes32"},
 	{
 		Name: "faultDisputeGameRootClaimStorageProof",
 		Type: "bytes[]", InternalType: "bytes[]",
@@ -686,9 +683,6 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 		}
 	}
 
-	// Create fault dispute game state root
-	faultDisputeGameStateRoot := faultDisputeGameProof.StorageHash
-
 	var createdAt uint64
 	if len(createdAtResult) >= 8 {
 		// Parse as uint64 from the last 8 bytes
@@ -808,7 +802,6 @@ func (p *OPStackCannonProver) GenerateSettledStateProof(
 	}
 
 	faultData := FaultDisputeGameProof{
-		FaultDisputeGameStateRoot:             faultDisputeGameStateRoot,
 		FaultDisputeGameRootClaimStorageProof: faultDisputeGameRootClaimStorageProof,
 		FaultDisputeGameStatusSlotData:        statusData,
 		FaultDisputeGameStatusStorageProof:    faultDisputeGameStatusStorageProof,

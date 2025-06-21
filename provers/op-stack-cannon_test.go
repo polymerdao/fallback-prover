@@ -123,7 +123,6 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 	rootClaim := common.HexToHash("0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba")
 	gameStatus := uint8(2) // RESOLVED status value (important for this test)
 	messagePasserRoot := common.HexToHash("0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321")
-	faultDisputeGameStateRoot := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
 	disputeGameABI, err := getFaultDisputeGameABI()
 	require.NoError(t, err)
 	// Create a test header and block
@@ -291,7 +290,6 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 						"balance":      "0x0",
 						"codeHash":     "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 						"nonce":        "0x0",
-						"storageHash":  faultDisputeGameStateRoot.Hex(),
 						"storageProof": []map[string]interface{}{
 							{
 								"key":   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000456").Hex(),
@@ -353,7 +351,6 @@ func TestOPStackCannonProver_GenerateSettledStateProof(t *testing.T) {
 							"balance":      "0x0",
 							"codeHash":     "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 							"nonce":        "0x0",
-							"storageHash":  faultDisputeGameStateRoot.Hex(),
 							"storageProof": []map[string]interface{}{
 								{
 									"key":   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000456").Hex(),
