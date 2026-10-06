@@ -1,9 +1,9 @@
 module github.com/polymerdao/fallback_prover
 
-go 1.24
+go 1.26.2
 
 require (
-	github.com/ethereum/go-ethereum v1.15.3
+	github.com/ethereum/go-ethereum v1.17.7
 	github.com/stretchr/testify v1.12.1
 	github.com/urfave/cli/v2 v2.27.7
 )
